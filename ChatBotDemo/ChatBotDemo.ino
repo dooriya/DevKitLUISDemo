@@ -149,14 +149,15 @@ void playCallback(void)
 
 void setResponseBodyCallback(const char* data, size_t dataSize)
 {
-    //Serial.print("*** Response callback, theta: ");
-    //Serial.println(theta);
+    Serial.print("*** Response callback, theta: ");
+    Serial.println(theta);
+    
     if (status == 2)
     {
         enterReceivingState();
     }
     
-    if (!startPlay && theta > 90000)
+    if (!startPlay && theta > 50000)
     {
       play();
     }
@@ -186,7 +187,7 @@ int sendVoiceCommand(const char *audioBinary, int audioSize)
     }
 
     char requestUrl[128];
-    sprintf(requestUrl, "http://devkitdemobotapp.azurewebsites.net/conversation/%s", conversationId);
+    sprintf(requestUrl, "http://demobotapp-sandbox.azurewebsites.net/conversation/%s", conversationId);
     Serial.println(requestUrl);
 
     // Setup response body buffer and callback
@@ -359,7 +360,7 @@ void setup()
     memset(emptyAudio, 0x0, playChunk);
     
     // start a new conversation
-    HTTPClient client = HTTPClient(HTTP_POST, "http://devkitdemobotapp.azurewebsites.net/conversation");
+    HTTPClient client = HTTPClient(HTTP_POST, "http://demobotapp-sandbox.azurewebsites.net/conversation");
     const Http_Response *response = client.send(NULL, NULL);
     if (response != NULL && response->status_code == 200)
     {
