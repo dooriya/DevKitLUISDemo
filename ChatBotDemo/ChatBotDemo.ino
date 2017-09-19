@@ -33,7 +33,6 @@ static int led = 0;
 static bool hasWifi;
 //static char action[16];
 //static char actionParam[128];
-
 static AudioClass& Audio = AudioClass::getInstance();
 const int RECORD_DURATION = 3;
 const int AUDIO_BUFFER_SIZE = 32000 * RECORD_DURATION + 44;
@@ -46,7 +45,7 @@ char * pAudioWriter = NULL;
 char * pAudioReader = NULL;
 int playedSize= 0;
 int theta = 0;
-const int playChunk = 256;
+const int playChunk = 512;
 static char emptyAudio[playChunk];
 
 static int lastButtonAState;
@@ -124,6 +123,25 @@ void play()
   */
 }
 
+void convertToStereo(char* data, int totalSize)
+{
+    uint16_t* pReader = (uint16_t *)data;    
+    uint16_t* pWriter = (uint16_t *)malloc(totalSize*2);
+    if (pWriter == NULL)
+    {
+        Serial.println("Memory allocation failed.");
+    }
+    
+    while ((char*)pReader < data + totalSize)
+    {
+        *(pWriter++) = *pReader;
+        *pWriter = *pReader;
+        
+        pReader++;
+        pWriter++; 
+    }
+}
+
 void playCallback(void)
 {
     Serial.print("### playCallback, theta: ");
@@ -131,7 +149,7 @@ void playCallback(void)
 
     if (theta < playChunk)
     {
-        //Audio.write(emptyAudio, playChunk);
+        Audio.write(emptyAudio, playChunk);
         return;
     }
         
@@ -143,21 +161,20 @@ void playCallback(void)
     if (pAudioReader > audioBuffer + AUDIO_BUFFER_SIZE - 45)
     {
         pAudioReader = audioBuffer;
-    }
-    
+    }    
 }
 
 void setResponseBodyCallback(const char* data, size_t dataSize)
 {
-    Serial.print("*** Response callback, theta: ");
-    Serial.println(theta);
+    //Serial.print("*** Response callback, theta: ");
+    //Serial.println(theta);
     
     if (status == 2)
     {
         enterReceivingState();
     }
     
-    if (!startPlay && theta > 50000)
+    if (!startPlay && theta > 16000)
     {
       play();
     }
@@ -390,5 +407,4 @@ void loop()
     
     delay(LOOP_DELAY);
 }
-
 
