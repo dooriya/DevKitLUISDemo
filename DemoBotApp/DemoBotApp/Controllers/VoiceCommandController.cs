@@ -19,22 +19,22 @@
     [RoutePrefix("conversation")]
     public class VoiceCommandController : ApiController
     {
-        private static readonly Uri ShortPhraseUrl = new Uri(@"wss://speech.platform.bing.com/api/service/recognition");
-        private static readonly Uri LongDictationUrl = new Uri(@"wss://speech.platform.bing.com/api/service/recognition/continuous");
-        private static readonly Uri SpeechSynthesisUrl = new Uri("https://speech.platform.bing.com/synthesize");
-        private static readonly string CognitiveSubscriptionKey = "16a433c4b68241dbb136447a324be771";
+        private static readonly Uri ShortPhraseUrl = new Uri(Constants.ShortPhraseUrl);
+        private static readonly Uri LongDictationUrl = new Uri(Constants.LongPhraseUrl);
+        private static readonly Uri SpeechSynthesisUrl = new Uri(Constants.SpeechSynthesisUrl);
+        private static readonly string CognitiveSubscriptionKey = ConfigurationManager.AppSettings["CognitiveSubscriptionKey"];
 
         private readonly CancellationTokenSource cts = new CancellationTokenSource();
         private readonly Task completedTask = Task.FromResult(true);
 
         private SpeechClient speechClient;
         private TTSClient ttsClient;
-        private string speechLocale = "en-US";
+        private string speechLocale = Constants.SpeechLocale;
         private string commandText;
 
-        private DirectLineClient directLineClient;       
-        private static readonly string DirectLineSecret = "HY6eguA5VH8.cwA.Hs0.36pUL-4FWqmTNcckkkJ75_QIF_MjKizLN3zQVSpGO_8";
-        private static readonly string BotId = "demobotservice-eas";
+        private DirectLineClient directLineClient;
+        private static readonly string DirectLineSecret = ConfigurationManager.AppSettings["DirectLineSecret"];
+        private static readonly string BotId = ConfigurationManager.AppSettings["BotId"];
         private static readonly string FromUserId = "TestUser";
 
         public VoiceCommandController()
@@ -151,42 +151,6 @@
             {
                 throw new InvalidOperationException("Voice command cannot be recognized.");
             }
-        }
-
-        [HttpPost]
-        [Route("test")]
-        public async Task<HttpResponseMessage> Test()
-        {
-            // Convert text to speech
-            HttpResponseMessage response = this.Request.CreateResponse(HttpStatusCode.OK);
-
-            MemoryStream outStream = new MemoryStream();
-            /*
-            this.ttsClient.OnAudioAvailable += (sender, stream) =>
-            {
-                WaveFormat target = new WaveFormat(8000, 16, 2);
-                using (WaveFormatConversionStream conversionStream = new WaveFormatConversionStream(target, new WaveFileReader(stream)))
-                {
-                    WaveFileWriter.WriteWavFileToStream(outStream, conversionStream);
-                    outStream.Position = 0;
-                }
-
-                stream.Dispose();
-            };
-
-            await ttsClient.SynthesizeTextAsync("Hello", CancellationToken.None);
-
-            response.Content = new StreamContent(outStream);
-            response.Content.Headers.ContentLength = outStream.Length;
-            response.Content.Headers.ContentType = new MediaTypeHeaderValue("audio/x-wav");
-            */
-
-           
-            string message = System.Web.Hosting.HostingEnvironment.MapPath("~/musicsample.wav");
-            response.Content = new StringContent($"Current dir: {message}");
-
-            return response;
-
         }
 
         /// <summary>

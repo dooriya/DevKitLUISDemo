@@ -31,7 +31,7 @@ namespace BotAppTestConsole
 
         private static async Task TestWebSocket()
         {
-            int chatIndex = 2;
+            int chatIndex = 3;
 
             using (ClientWebSocket webSocketClient = new ClientWebSocket())
             {
