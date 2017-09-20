@@ -45,7 +45,7 @@ char * pAudioWriter = NULL;
 char * pAudioReader = NULL;
 int playedSize= 0;
 int theta = 0;
-const int playChunk = 512;
+const int playChunk = 256;
 static char emptyAudio[playChunk];
 
 static int lastButtonAState;
@@ -325,6 +325,7 @@ void listenVoiceCommand()
                 Screen.print(0, "Release A to send\r\nMax duraion: 3 sec");  
             }           
             break;
+        // Finish recording
         case 1:
             buttonAState = digitalRead(USER_BUTTON_A);
             if (buttonAState == HIGH)
