@@ -78,6 +78,11 @@
                 await OnMessageReceived(sender, message, conversationId, nickName, watermark);
             };
 
+            webSocketHandler.OnBinaryMessageReceived += async (sender, bytes) =>
+            {
+                await OnBinaryMessageReceived(sender, bytes, conversationId, nickName, watermark);
+            };
+
             webSocketHandler.OnClosed += (sender, arg) =>
             {
                 webSocketHandler.SendMessage(nickName + " Disconnected!").Wait();
@@ -103,6 +108,52 @@
             PostVoiceCommandResponse botResponse = new PostVoiceCommandResponse
             {
                 Command = message,
+                Text = botResult.Text,
+                Watermark = botResult.Watermark
+            };
+
+            //await handlers[nickName].SendMessage($"user said: {message}, bot reply: {botResult.Text}, watermark: {botResult.Watermark}, replayToId: {botResult.ReplyToId}");
+
+            // Convert text to speech
+            byte[] totalBytes;
+            if (botResponse.Text.Contains("Music.Play"))
+            {
+                totalBytes = ((MemoryStream)SampleMusic.GetStream()).ToArray();
+                handlers[nickName].SendBinary(totalBytes).Wait();
+            }
+            else
+            {
+                totalBytes = await ttsClient.SynthesizeTextToBytesAsync(botResponse.Text, CancellationToken.None);
+                handlers[nickName].SendBinary(totalBytes).Wait();
+            }
+        }
+
+        private async Task OnBinaryMessageReceived(object sender, byte[] bytes, string conversationId, string nickName, string watermark)
+        {
+            // Convert speech to Text
+            string speechText = string.Empty;
+            using (SpeechRecognitionClient client = new SpeechRecognitionClient(CognitiveSubscriptionKey))
+            {
+                using (MemoryStream ms = new MemoryStream(bytes))
+                {
+                    speechText = await client.ConvertSpeechToTextAsync(ms);
+                }
+            }
+
+            // Send text message to Bot Service
+            Activity userMessage = new Activity
+            {
+                From = new ChannelAccount(FromUserId, FromUserId),
+                Text = speechText,
+                Type = ActivityTypes.Message
+            };
+
+            directLineClient.Conversations.PostActivity(conversationId, userMessage);
+            var botResult = await BotClientHelper.ReceiveBotMessagesAsync(this.directLineClient, conversationId, watermark);
+
+            PostVoiceCommandResponse botResponse = new PostVoiceCommandResponse
+            {
+                Command = speechText,
                 Text = botResult.Text,
                 Watermark = botResult.Watermark
             };

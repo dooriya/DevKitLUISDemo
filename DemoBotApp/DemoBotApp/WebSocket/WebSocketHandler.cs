@@ -18,7 +18,8 @@
         //public event EventHandler<string> OnTextMessageReceived;
         public event Func<object, string, Task> OnTextMessageReceived;
 
-        public event EventHandler<byte[]> OnBinaryMessageReceived;
+        //public event EventHandler<byte[]> OnBinaryMessageReceived;
+        public event Func<object, byte[], Task> OnBinaryMessageReceived;
 
         public event EventHandler OnClosed;
 

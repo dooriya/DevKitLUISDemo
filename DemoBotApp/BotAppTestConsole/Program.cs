@@ -8,6 +8,7 @@ using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using DemoBotApp;
+using DemoBotApp.WebSocket;
 
 namespace BotAppTestConsole
 {
@@ -17,8 +18,16 @@ namespace BotAppTestConsole
         {
             "Hello",
             "Could you introduce yourself?",
+            "Do you know Microsoft?",
             "Who is Arthur?",
             "Come some music please"
+        };
+
+        private static List<string> audioFileList = new List<string>()
+        {
+            @"C:\IoT\Voice\STTTest-Hello.wav",
+            @"C:\IoT\Voice\STTTest-Weather-Shanghai.wav",
+            @"C:\IoT\Voice\STTTest-Weather-Paris.wav"
         };
 
         static void Main(string[] args)
@@ -30,7 +39,7 @@ namespace BotAppTestConsole
 
         private static async Task TestWebSocket()
         {
-            int chatIndex = 2;
+            int index = 0;
 
             using (ClientWebSocket webSocketClient = new ClientWebSocket())
             {
@@ -45,14 +54,20 @@ namespace BotAppTestConsole
                 while (webSocketClient.State == WebSocketState.Open)
                 {
                     // Send text message to server
+                    /*
                     string sendMsg = chatList[chatIndex];
                     chatIndex = (chatIndex + 1) % chatList.Count;
                     Console.WriteLine($"Command> {sendMsg}");
 
                     ArraySegment<byte> bytesToSend = new ArraySegment<byte>(Encoding.UTF8.GetBytes(sendMsg));
                     await webSocketClient.SendAsync(bytesToSend, WebSocketMessageType.Text, true, CancellationToken.None);
+                    */
 
-                    Thread.Sleep(1000);
+                    byte[] bytes = File.ReadAllBytes(audioFileList[index]);
+                    index = (index + 1) % audioFileList.Count;
+                    SendBinary(bytes, webSocketClient).Wait();
+
+                    //Thread.Sleep(1000);
 
                     // Receive message from server
                     // receive connect ack message
@@ -77,8 +92,34 @@ namespace BotAppTestConsole
                         player.PlaySync();
                     }
 
-                    Thread.Sleep(3000);
+                    Thread.Sleep(1000);
                 }
+            }
+        }
+
+        private static async Task SendBinary(byte[] bytes, ClientWebSocket client)
+        {
+            if (client == null || client.State != WebSocketState.Open)
+            {
+                throw new InvalidOperationException("the web socket is not open.");
+            }
+
+            const int FrameBytesCount = 10 * 1024;
+            int sentBytes = 0;
+            while (sentBytes < bytes.Length)
+            {
+                int remainingBytes = bytes.Length - sentBytes;
+                bool isEndOfMessage = remainingBytes > FrameBytesCount ? false : true;
+
+                await client.SendAsync(
+                    new ArraySegment<byte>(bytes, sentBytes, remainingBytes > FrameBytesCount ? FrameBytesCount : remainingBytes),
+                    WebSocketMessageType.Binary,
+                    isEndOfMessage,
+                    CancellationToken.None);
+
+                sentBytes += remainingBytes > FrameBytesCount ? FrameBytesCount : remainingBytes;
+
+                Thread.Sleep(50);
             }
         }
 
