@@ -37,27 +37,7 @@
 
         public async Task SynthesizeTextAsync(string text, CancellationToken cancellationToken)
         {
-            if (string.IsNullOrEmpty(text))
-            {
-                throw new ArgumentNullException(text, nameof(text));
-            }
-
-            var request = new HttpRequestMessage(HttpMethod.Post, this.synthesisOption.RequestUri)
-            {
-                Content = new StringContent(GenerateSsml(
-                    this.synthesisOption.Locale,
-                    this.synthesisOption.VoiceGender.ToString(),
-                    this.synthesisOption.VoiceName,
-                    text))
-            };
-
-            var headers = await this.synthesisOption.GetHeaders();
-            foreach (var header in headers)
-            {
-                request.Headers.TryAddWithoutValidation(header.Key, header.Value);
-
-            }
-
+            HttpRequestMessage request = await CreateSynthesisRequest(text);
             HttpResponseMessage response = null;
 
             try
@@ -81,7 +61,32 @@
             }
         }
 
-        public byte[] SynthesizeText(string text)
+        public async Task<byte[]> SynthesizeTextToBytesAsync(string text, CancellationToken cancellationToken)
+        {
+            HttpRequestMessage request = await CreateSynthesisRequest(text);
+            HttpResponseMessage response = null;
+
+            try
+            {
+                response = await this.httpClient.SendAsync(request, CancellationToken.None);
+                if (!response.IsSuccessStatusCode)
+                {
+                    string errorMessage = await ReadResponsePayloadAsStringAsync(response);
+                    throw new DemoBotServiceException(errorMessage);
+                }
+                else
+                {
+                    return await response.Content.ReadAsByteArrayAsync();
+                }
+            }
+            finally
+            {
+                response.Dispose();
+                response = null;
+            }
+        }
+
+        private async Task<HttpRequestMessage> CreateSynthesisRequest(string text)
         {
             if (string.IsNullOrEmpty(text))
             {
@@ -97,33 +102,13 @@
                     text))
             };
 
-            var headers = this.synthesisOption.GetHeaders().Result;
+            var headers = await this.synthesisOption.GetHeaders();
             foreach (var header in headers)
             {
                 request.Headers.TryAddWithoutValidation(header.Key, header.Value);
-
             }
 
-            HttpResponseMessage response = null;
-
-            try
-            {
-                response = this.httpClient.SendAsync(request, CancellationToken.None).Result;
-                if (!response.IsSuccessStatusCode)
-                {
-                    string errorMessage = ReadResponsePayloadAsStringAsync(response).Result;
-                    throw new DemoBotServiceException(errorMessage);
-                }
-                else
-                {
-                    return response.Content.ReadAsByteArrayAsync().Result;
-                }
-            }
-            finally
-            {
-                response.Dispose();
-                response = null;
-            }
+            return request;
         }
 
         /// <summary>

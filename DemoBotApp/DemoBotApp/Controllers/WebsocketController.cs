@@ -118,25 +118,8 @@
             }
             else
             {
-                //this.ttsClient.OnAudioAvailable += null;
-                this.ttsClient.OnAudioAvailable += (s, stream) =>
-                {
-                    /*
-                    WaveFormat target = new WaveFormat(8000, 16, 2);
-                    using (WaveFormatConversionStream conversionStream = new WaveFormatConversionStream(target, new WaveFileReader(stream)))
-                    {
-                        WaveFileWriter.WriteWavFileToStream(outStream, conversionStream);
-                        outStream.Position = 0;
-                    }
-                    */
-
-                    totalBytes = ((MemoryStream)stream).ToArray();
-                    handlers[nickName].SendBinary(totalBytes).Wait();
-
-                    stream.Dispose();
-                };
-
-                await ttsClient.SynthesizeTextAsync(botResponse.Text, CancellationToken.None);                
+                totalBytes = await ttsClient.SynthesizeTextToBytesAsync(botResponse.Text, CancellationToken.None);
+                handlers[nickName].SendBinary(totalBytes).Wait();
             }
         }
     }

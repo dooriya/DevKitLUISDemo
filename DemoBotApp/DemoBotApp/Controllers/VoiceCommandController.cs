@@ -1,20 +1,17 @@
 ﻿namespace DemoBotApp.Controllers
 {
-    using Microsoft.Bing.Speech;
-    using Microsoft.Bot.Connector.DirectLine;
-    using Newtonsoft.Json;
     using System;
+    using System.Configuration;
     using System.IO;
+    using System.Net;
     using System.Net.Http;
+    using System.Net.Http.Headers;
     using System.Threading;
     using System.Threading.Tasks;
     using System.Web.Http;
-    using System.Linq;
-    using System.Net;
-    using System.Net.Http.Headers;
+    using Microsoft.Bing.Speech;
+    using Microsoft.Bot.Connector.DirectLine;
     using NAudio.Wave;
-    using System.Web;
-    using System.Configuration;
 
     [RoutePrefix("conversation")]
     public class VoiceCommandController : ApiController
@@ -89,19 +86,22 @@
 
             // Option 2: REST API
             // Convert speech to text
-            this.commandText = null;
+            string speechText;
             using (Stream audio = await Request.Content.ReadAsStreamAsync())
             {
-                this.commandText = await ConvertSpeechToTextAsync(audio);
+                using (SpeechRecognitionClient client = new SpeechRecognitionClient(CognitiveSubscriptionKey))
+                {
+                    speechText = await client.ConvertSpeechToTextAsync(audio);
+                }
             }
 
             // Send text message to bot service
-            if (!string.IsNullOrEmpty(this.commandText))
+            if (!string.IsNullOrEmpty(speechText))
             {
                 Activity userMessage = new Activity
                 {
                     From = new ChannelAccount(FromUserId),
-                    Text = this.commandText,
+                    Text = speechText,
                     Type = ActivityTypes.Message
                 };
 
@@ -110,7 +110,7 @@
 
                 PostVoiceCommandResponse botResponse = new PostVoiceCommandResponse
                 {
-                    Command = this.commandText,
+                    Command = speechText,
                     Text = botResult.Text,
                     Watermark = botResult.Watermark
                 };
@@ -118,7 +118,6 @@
                 // Convert text to speech
                 HttpResponseMessage response = this.Request.CreateResponse(HttpStatusCode.OK);
                 MemoryStream outStream = new MemoryStream();
-                //response.Content = new StringContent(JsonConvert.SerializeObject(botResponse));
 
                 if (botResponse.Text.Contains("Music.Play"))
                 {
@@ -170,40 +169,6 @@
             }
 
             return this.completedTask;
-        }
-
-        public async Task<string> ConvertSpeechToTextAsync(Stream contentStream)
-        {
-            string requestUri = @"https://speech.platform.bing.com/speech/recognition/interactive/cognitiveservices/v1?language=en-US";
-
-            using (var client = new HttpClient())
-            {
-                CognitiveTokenProvider tokenProvider = new CognitiveTokenProvider(CognitiveSubscriptionKey);
-                string token = await tokenProvider.GetAuthorizationTokenAsync();
-
-                client.DefaultRequestHeaders.Add("Authorization", "Bearer " + token);
-                client.DefaultRequestHeaders.TryAddWithoutValidation("Content-type", @"audio/wav; codec=""audio/pcm""; samplerate=8000");
-                client.DefaultRequestHeaders.TryAddWithoutValidation("Accept", "application/json;text/xml");
-                client.DefaultRequestHeaders.TryAddWithoutValidation("Host", "speech.platform.bing.com");
-                client.DefaultRequestHeaders.TryAddWithoutValidation("Transfer-Encoding", "chunked");
-                client.DefaultRequestHeaders.TryAddWithoutValidation("Expect", "100-continue");
-
-                using (var binaryContent = new StreamContent(contentStream))
-                {
-                    var response = await client.PostAsync(requestUri, binaryContent);
-                    var responseString = await response.Content.ReadAsStringAsync();
-
-                    try
-                    {
-                        SpeechRecognitionResult result = JsonConvert.DeserializeObject<SpeechRecognitionResult>(responseString);
-                        return result.DisplayText;
-                    }
-                    catch (JsonReaderException ex)
-                    {
-                        throw new Exception(responseString, ex);
-                    }
-                }
-            }
         }
     }
 }

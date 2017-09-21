@@ -99,7 +99,7 @@ namespace BotAppTestConsole
             }
         }
 
-        private static void TestSpeechSynthesis()
+        private static async Task TestSpeechSynthesis()
         {
             foreach (string text in chatList)
             {
@@ -108,7 +108,7 @@ namespace BotAppTestConsole
 
                 SynthesisOptions synthesisOption = new SynthesisOptions(SpeechSynthesisUrl, CognitiveSubscriptionKey);
                 var ttsClient = new TTSClient(synthesisOption);
-                var bytes = ttsClient.SynthesizeText(text);
+                var bytes = await ttsClient.SynthesizeTextToBytesAsync(text, CancellationToken.None);
 
                 using (MemoryStream ms = new MemoryStream(bytes))
                 {
