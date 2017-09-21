@@ -17,7 +17,6 @@ namespace BotAppTestConsole
         {
             "Hello",
             "Could you introduce yourself?",
-            "Do you know microsoft?",
             "Who is Arthur?",
             "Come some music please"
         };
@@ -31,7 +30,7 @@ namespace BotAppTestConsole
 
         private static async Task TestWebSocket()
         {
-            int chatIndex = 3;
+            int chatIndex = 2;
 
             using (ClientWebSocket webSocketClient = new ClientWebSocket())
             {
@@ -48,43 +47,37 @@ namespace BotAppTestConsole
                     // Send text message to server
                     string sendMsg = chatList[chatIndex];
                     chatIndex = (chatIndex + 1) % chatList.Count;
+                    Console.WriteLine($"Command> {sendMsg}");
 
                     ArraySegment<byte> bytesToSend = new ArraySegment<byte>(Encoding.UTF8.GetBytes(sendMsg));
                     await webSocketClient.SendAsync(bytesToSend, WebSocketMessageType.Text, true, CancellationToken.None);
 
+                    Thread.Sleep(1000);
+
                     // Receive message from server
                     // receive connect ack message
-                    receiveResult = await webSocketClient.ReceiveAsync(receivedBuffer, CancellationToken.None);
-                    Console.WriteLine(Encoding.UTF8.GetString(receivedBuffer.Array, 0, receiveResult.Count));
+                    //receiveResult = await webSocketClient.ReceiveAsync(receivedBuffer, CancellationToken.None);
+                    //Console.WriteLine(Encoding.UTF8.GetString(receivedBuffer.Array, 0, receiveResult.Count));
 
                     // receive binary
                     totalReceived.Clear();
                     receiveResult = await webSocketClient.ReceiveAsync(receivedBuffer, CancellationToken.None);
                     MergeFrameContent(totalReceived, receivedBuffer.Array, receiveResult.Count);
 
-                    try
+                    while (webSocketClient.State == WebSocketState.Open && !receiveResult.EndOfMessage)
                     {
-                        while (webSocketClient.State == WebSocketState.Open && !receiveResult.EndOfMessage)
-                        {
-                            receiveResult = await webSocketClient.ReceiveAsync(receivedBuffer, CancellationToken.None);
-
-                            MergeFrameContent(totalReceived, receivedBuffer.Array, receiveResult.Count);
-                            Console.WriteLine($"Received: {receiveResult.Count}, total: {totalReceived.Count}");
-                        }
-
-                        //BytesToFile(totalReceived.ToArray(), @"c:\IoT\Voice\ws-routput.wav");
-                        using (MemoryStream ms = new MemoryStream(totalReceived.ToArray()))
-                        {
-                            SoundPlayer player = new SoundPlayer(ms);
-                            player.Play();
-                        }
-                    }
-                    catch (Exception e)
-                    {
-                        Console.WriteLine(e.ToString());
+                        receiveResult = await webSocketClient.ReceiveAsync(receivedBuffer, CancellationToken.None);
+                        MergeFrameContent(totalReceived, receivedBuffer.Array, receiveResult.Count);
+                        //Console.WriteLine($"Received: {receiveResult.Count}, total: {totalReceived.Count}");
                     }
 
-                    Thread.Sleep(6000);
+                    using (MemoryStream ms = new MemoryStream(totalReceived.ToArray()))
+                    {
+                        SoundPlayer player = new SoundPlayer(ms);
+                        player.PlaySync();
+                    }
+
+                    Thread.Sleep(3000);
                 }
             }
         }

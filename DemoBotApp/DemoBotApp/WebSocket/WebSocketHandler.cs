@@ -102,8 +102,9 @@
                     isEndOfMessage,
                     CancellationToken.None);
 
-                sentBytes += FrameBytesCount;
-                Thread.Sleep(100);
+                sentBytes += remainingBytes > FrameBytesCount ? FrameBytesCount : remainingBytes;
+
+                Thread.Sleep(50);
             }
         }
 

@@ -62,10 +62,10 @@
 
             try
             {
-                response = await this.httpClient.SendAsync(request, cancellationToken).ConfigureAwait(false);
+                response = await this.httpClient.SendAsync(request, cancellationToken);
                 if (!response.IsSuccessStatusCode)
                 {
-                    string errorMessage = await ReadResponsePayloadAsStringAsync(response).ConfigureAwait(false);
+                    string errorMessage = await ReadResponsePayloadAsStringAsync(response);
                     throw new DemoBotServiceException(errorMessage);
                 }
                 else

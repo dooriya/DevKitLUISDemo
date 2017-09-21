@@ -62,6 +62,7 @@
             handlers[nickName] = webSocketHandler;
 
             string conversationId = string.Empty;
+            string watermark = null;
 
             webSocketHandler.OnOpened += (sender, arg) =>
             {
@@ -74,7 +75,7 @@
 
             webSocketHandler.OnTextMessageReceived += async (sender, message) =>
             {
-                await OnMessageReceived(sender, message, conversationId, nickName);
+                await OnMessageReceived(sender, message, conversationId, nickName, watermark);
             };
 
             webSocketHandler.OnClosed += (sender, arg) =>
@@ -87,7 +88,7 @@
             return Request.CreateResponse(HttpStatusCode.SwitchingProtocols);
         }
 
-        private async Task OnMessageReceived(object sender, string message, string conversationId, string nickName)
+        private async Task OnMessageReceived(object sender, string message, string conversationId, string nickName, string watermark)
         {
             Activity userMessage = new Activity
             {
@@ -96,9 +97,8 @@
                 Type = ActivityTypes.Message
             };
 
-
             directLineClient.Conversations.PostActivity(conversationId, userMessage);
-            var botResult = BotClientHelper.ReceiveBotMessages(this.directLineClient, conversationId, null);
+            var botResult = await BotClientHelper.ReceiveBotMessagesAsync(this.directLineClient, conversationId, watermark);
 
             PostVoiceCommandResponse botResponse = new PostVoiceCommandResponse
             {
@@ -107,10 +107,9 @@
                 Watermark = botResult.Watermark
             };
 
-            handlers[nickName].SendMessage($"bot reply: {botResult.Text}").Wait();
+            //await handlers[nickName].SendMessage($"user said: {message}, bot reply: {botResult.Text}, watermark: {botResult.Watermark}, replayToId: {botResult.ReplyToId}");
 
             // Convert text to speech
-            MemoryStream outStream = new MemoryStream();
             byte[] totalBytes;
             if (botResponse.Text.Contains("Music.Play"))
             {
@@ -119,22 +118,25 @@
             }
             else
             {
+                //this.ttsClient.OnAudioAvailable += null;
                 this.ttsClient.OnAudioAvailable += (s, stream) =>
                 {
+                    /*
                     WaveFormat target = new WaveFormat(8000, 16, 2);
                     using (WaveFormatConversionStream conversionStream = new WaveFormatConversionStream(target, new WaveFileReader(stream)))
                     {
                         WaveFileWriter.WriteWavFileToStream(outStream, conversionStream);
                         outStream.Position = 0;
                     }
+                    */
+
+                    totalBytes = ((MemoryStream)stream).ToArray();
+                    handlers[nickName].SendBinary(totalBytes).Wait();
 
                     stream.Dispose();
                 };
 
-                await ttsClient.SynthesizeTextAsync(botResponse.Text, CancellationToken.None);
-
-                totalBytes = outStream.ToArray();
-                handlers[nickName].SendBinary(totalBytes).Wait();
+                await ttsClient.SynthesizeTextAsync(botResponse.Text, CancellationToken.None);                
             }
         }
     }

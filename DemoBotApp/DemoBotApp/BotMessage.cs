@@ -18,5 +18,11 @@ namespace DemoBotApp
             get;
             set;
         }
+
+        public string ReplyToId
+        {
+            get;
+            set;
+        }
     }
 }

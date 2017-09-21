@@ -6,7 +6,8 @@ packages/
 */obj/
 /obj/Release/
 
-/DemoBotApp/obj/Debug/DemoBotApp.dll
+DemoBotApp/DemoBotApp/Properties/PublishProfiles/
+
 # User-specific files
 *.pdb
 *.suo
