@@ -2,20 +2,19 @@
 {
     using System;
     using System.IO;
-    using System.Media;
     using System.Net;
     using System.Net.Http;
     using System.Threading;
     using System.Threading.Tasks;
     using System.Xml.Linq;
 
-    public class TTSClient
+    public class SpeechSynthesisClient
     {
         private HttpClient httpClient;
         private HttpClientHandler httpClientHandler;
         private SynthesisOptions synthesisOption;
 
-        public TTSClient(SynthesisOptions options)
+        public SpeechSynthesisClient(SynthesisOptions options)
         {
             this.httpClientHandler = new HttpClientHandler() { CookieContainer = new CookieContainer(), UseProxy = false };
             this.httpClient = new HttpClient(httpClientHandler);
@@ -24,7 +23,7 @@
             this.httpClient.DefaultRequestHeaders.Clear();
         }
 
-        ~TTSClient()
+        ~SpeechSynthesisClient()
         {
             this.httpClient.Dispose();
             this.httpClientHandler.Dispose();

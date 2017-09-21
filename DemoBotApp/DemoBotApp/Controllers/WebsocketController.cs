@@ -23,7 +23,7 @@
         private static readonly Uri SpeechSynthesisUrl = new Uri(Constants.SpeechSynthesisUrl);
         private static readonly string CognitiveSubscriptionKey = ConfigurationManager.AppSettings["CognitiveSubscriptionKey"];
 
-        private TTSClient ttsClient;
+        private SpeechSynthesisClient ttsClient;
         private string speechLocale = Constants.SpeechLocale;
 
         private DirectLineClient directLineClient;
@@ -41,7 +41,7 @@
 
             // Setup speech synthesis client
             SynthesisOptions synthesisOption = new SynthesisOptions(SpeechSynthesisUrl, CognitiveSubscriptionKey);
-            this.ttsClient = new TTSClient(synthesisOption);
+            this.ttsClient = new SpeechSynthesisClient(synthesisOption);
         }
 
         [Route("")]

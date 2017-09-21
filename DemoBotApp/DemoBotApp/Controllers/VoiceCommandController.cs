@@ -25,7 +25,7 @@
         private readonly Task completedTask = Task.FromResult(true);
 
         private SpeechClient speechClient;
-        private TTSClient ttsClient;
+        private SpeechSynthesisClient ttsClient;
         private string speechLocale = Constants.SpeechLocale;
         private string commandText;
 
@@ -46,7 +46,7 @@
 
             // Setup speech synthesis client
             SynthesisOptions synthesisOption = new SynthesisOptions(SpeechSynthesisUrl, CognitiveSubscriptionKey);
-            this.ttsClient = new TTSClient(synthesisOption);
+            this.ttsClient = new SpeechSynthesisClient(synthesisOption);
         }
 
         [HttpPost]

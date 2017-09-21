@@ -107,7 +107,7 @@ namespace BotAppTestConsole
                 string CognitiveSubscriptionKey = "16a433c4b68241dbb136447a324be771";
 
                 SynthesisOptions synthesisOption = new SynthesisOptions(SpeechSynthesisUrl, CognitiveSubscriptionKey);
-                var ttsClient = new TTSClient(synthesisOption);
+                var ttsClient = new SpeechSynthesisClient(synthesisOption);
                 var bytes = await ttsClient.SynthesizeTextToBytesAsync(text, CancellationToken.None);
 
                 using (MemoryStream ms = new MemoryStream(bytes))
