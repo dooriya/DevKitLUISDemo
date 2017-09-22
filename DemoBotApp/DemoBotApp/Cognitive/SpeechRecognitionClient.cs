@@ -56,7 +56,7 @@
                 }
                 catch (JsonReaderException ex)
                 {
-                    throw new Exception(responseString, ex);
+                    throw new InvalidDataException(responseString, ex);
                 }
             }
         }

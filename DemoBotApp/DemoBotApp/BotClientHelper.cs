@@ -3,12 +3,23 @@
     using System;
     using System.Configuration;
     using System.Linq;
-    using System.Threading;
     using System.Threading.Tasks;
     using Microsoft.Bot.Connector.DirectLine;
 
     public static class BotClientHelper
     {
+        public static async Task SendBotMessageAsync(DirectLineClient client, string conversationId, string userId, string message)
+        {
+            Activity userMessage = new Activity
+            {
+                From = new ChannelAccount(userId, userId),
+                Text = message,
+                Type = ActivityTypes.Message
+            };
+
+            await client.Conversations.PostActivityAsync(conversationId, userMessage);
+        }
+
         public static async Task<BotMessage> ReceiveBotMessagesAsync(DirectLineClient client, string conversationId, string watermark)
         {
             bool messageReceived = false;

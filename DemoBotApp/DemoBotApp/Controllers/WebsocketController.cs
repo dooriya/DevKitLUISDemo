@@ -92,22 +92,8 @@
 
         private async Task OnMessageReceived(object sender, string message, string conversationId, string nickName, string watermark)
         {
-            Activity userMessage = new Activity
-            {
-                From = new ChannelAccount(FromUserId, FromUserId),
-                Text = message,
-                Type = ActivityTypes.Message
-            };
-
-            directLineClient.Conversations.PostActivity(conversationId, userMessage);
-            var botResult = await BotClientHelper.ReceiveBotMessagesAsync(this.directLineClient, conversationId, watermark);
-
-            PostVoiceCommandResponse botResponse = new PostVoiceCommandResponse
-            {
-                Command = message,
-                Text = botResult.Text,
-                Watermark = botResult.Watermark
-            };
+            await BotClientHelper.SendBotMessageAsync(this.directLineClient, conversationId, FromUserId, message);
+            BotMessage botResponse = await BotClientHelper.ReceiveBotMessagesAsync(this.directLineClient, conversationId, watermark);
 
             //await handlers[nickName].SendMessage($"user said: {message}, bot reply: {botResult.Text}, watermark: {botResult.Watermark}, replayToId: {botResult.ReplyToId}");
 
@@ -138,46 +124,58 @@
         private async Task OnBinaryMessageReceived(object sender, byte[] bytes, string conversationId, string nickName, string watermark)
         {
             // Convert speech to Text
-            string speechText = string.Empty;
-            using (SpeechRecognitionClient client = new SpeechRecognitionClient(CognitiveSubscriptionKey))
+            string speechText = null;
+            try
             {
-                using (MemoryStream ms = new MemoryStream(bytes))
+                using (SpeechRecognitionClient client = new SpeechRecognitionClient(CognitiveSubscriptionKey))
                 {
-                    speechText = await client.ConvertSpeechToTextAsync(ms);
+                    using (MemoryStream ms = new MemoryStream(bytes))
+                    {
+                        speechText = await client.ConvertSpeechToTextAsync(ms);
+                    }
                 }
             }
-
-            // Send text message to Bot Service
-            Activity userMessage = new Activity
+            catch (Exception e)
             {
-                From = new ChannelAccount(FromUserId, FromUserId),
-                Text = speechText,
-                Type = ActivityTypes.Message
-            };
+                // Failed to convert speech to text
+            }
 
-            directLineClient.Conversations.PostActivity(conversationId, userMessage);
-            var botResult = await BotClientHelper.ReceiveBotMessagesAsync(this.directLineClient, conversationId, watermark);
-
-            PostVoiceCommandResponse botResponse = new PostVoiceCommandResponse
+            string replyMessage = null;
+            if (!string.IsNullOrEmpty(speechText))
             {
-                Command = speechText,
-                Text = botResult.Text,
-                Watermark = botResult.Watermark
-            };
+                // Send text message to Bot Service
+                await BotClientHelper.SendBotMessageAsync(this.directLineClient, conversationId, FromUserId, speechText);
+                BotMessage botResponse = await BotClientHelper.ReceiveBotMessagesAsync(this.directLineClient, conversationId, watermark);
+                replyMessage = botResponse.Text;
+            }
+            else
+            {
+                replyMessage = "Sorry, I don't understand.";
+            }
 
             //await handlers[nickName].SendMessage($"user said: {message}, bot reply: {botResult.Text}, watermark: {botResult.Watermark}, replayToId: {botResult.ReplyToId}");
 
             // Convert text to speech
             byte[] totalBytes;
-            if (botResponse.Text.Contains("Music.Play"))
+            if (replyMessage.Contains("Music.Play"))
             {
                 totalBytes = ((MemoryStream)SampleMusic.GetStream()).ToArray();
                 handlers[nickName].SendBinary(totalBytes).Wait();
             }
             else
             {
-                totalBytes = await ttsClient.SynthesizeTextToBytesAsync(botResponse.Text, CancellationToken.None);
-                handlers[nickName].SendBinary(totalBytes).Wait();
+                totalBytes = await ttsClient.SynthesizeTextToBytesAsync(replyMessage, CancellationToken.None);
+
+                WaveFormat target = new WaveFormat(8000, 16, 2);
+                MemoryStream outStream = new MemoryStream();
+                using (WaveFormatConversionStream conversionStream = new WaveFormatConversionStream(target, new WaveFileReader(new MemoryStream(totalBytes))))
+                {
+                    WaveFileWriter.WriteWavFileToStream(outStream, conversionStream);
+                    outStream.Position = 0;
+                }
+
+                handlers[nickName].SendBinary(outStream.ToArray()).Wait();
+                outStream.Dispose();
             }
         }
     }
