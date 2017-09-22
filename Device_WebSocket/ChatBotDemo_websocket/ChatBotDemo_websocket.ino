@@ -43,6 +43,7 @@ void initWiFi()
 void play()
 {
   printf("start play\r\n");
+  enterPlayingState();
   Audio.attachRecord(NULL);
   Audio.attachPlay(playCallback);
   Audio.format(8000, 16);
@@ -177,6 +178,13 @@ void enterReceivingState()
     Screen.clean();
     Screen.print(0, "Processing...");
     Screen.print(1, "Receiving...");
+}
+
+void enterPlayingState()
+{
+    status = 4;
+    Screen.clean();
+    Screen.print(1, "Playing...");
 }
 
 void listenVoiceCommand()
