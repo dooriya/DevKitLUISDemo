@@ -50,7 +50,6 @@ class AudioClass {
           
         int startRecord(char * audioFile, int fileSize, int durationInSeconds);
         int startPlay(char * audioFile, int size);
-        int startPlayPcm(char *audioFile, int fileSize);
         void stop();
 
         int getAudioState();
@@ -64,6 +63,7 @@ class AudioClass {
         int write(char* buffer, int length);
         void attachPlay(callbackFunc func = NULL);
         void attachRecord(callbackFunc func = NULL);
+        int startRecord();
         int startPlay();
 
         // Singleton class:
@@ -76,7 +76,6 @@ class AudioClass {
         }
 
     private:
-        int start(uint16_t * recordBuf, uint16_t * playBuf, unsigned int size);
         void genericWAVHeader(WaveHeader* header, int pcmDataSize, uint32_t sampleRate, uint16_t sampleBitDepth, uint8_t channels);
 
         /* Private constructor to prevent instancing */

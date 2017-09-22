@@ -29,8 +29,8 @@ static uint16_t * _playCursor;
 static int _audioFileSize;
 static int _audioRemSize;
 
+static volatile char _flag = 0;
 static AUDIO_STATE_TypeDef _audioState;
-static void doNothing(void) {}
 
 static callbackFunc audioCallbackFptr = NULL;
 static callbackFunc recordCallbackFptr = NULL;
@@ -38,7 +38,7 @@ static callbackFunc recordCallbackFptr = NULL;
 AudioClass::AudioClass()
 {
     format(DEFAULT_SAMPLE_RATE, DEFAULT_BITS_PER_SAMPLE);
-    rxBuffer = & _rx_buffer[0];
+    //rxBuffer = & _rx_buffer[0];
 }
 
 /* 
@@ -77,17 +77,6 @@ void AudioClass::format(unsigned int sampleRate, unsigned short sampleBitLength)
     _audioState = AUDIO_STATE_INIT;
 }
 
-int AudioClass::start(uint16_t *transmitBuf, uint16_t *readBuf, unsigned int size)
-{
-    if (transmitBuf == NULL || readBuf == NULL)
-    {
-        return AUDIO_ERROR;
-    }
-
-    BSP_AUDIO_In_Out_Transfer(transmitBuf, readBuf, size);
-    return AUDIO_OK;
-}
-
 /*
 ** @brief Start recording audio data using underlying codec
 ** @param Pointer to audio file
@@ -97,10 +86,11 @@ int AudioClass::start(uint16_t *transmitBuf, uint16_t *readBuf, unsigned int siz
 */
 int AudioClass::startRecord(char *audioFile, int fileSize, int durationInSeconds)
 {
-    /*if ((audioFile == NULL) || (fileSize < WAVE_HEADER_SIZE) || (durationInSeconds <= 0)) {
+    if ((audioFile == NULL) || (fileSize < WAVE_HEADER_SIZE) || (durationInSeconds <= 0)) {
         return AUDIO_ERROR;
     }
 
+    _flag = 0;
     _wavFile = audioFile;
     _audioFileSize = fileSize;
     _durationInSeconds = durationInSeconds;
@@ -111,8 +101,19 @@ int AudioClass::startRecord(char *audioFile, int fileSize, int durationInSeconds
     if (pcmAudioSize < _audioFileSize - WAVE_HEADER_SIZE)
     {
         _audioFileSize = pcmAudioSize + WAVE_HEADER_SIZE;
-    }*/
+    }
 
+    _audioState = AUDIO_STATE_RECORDING;
+    memset(_tx_buffer, 0x0, BATCH_TRANSMIT_SIZE*2);
+
+    // Start DMA transfer
+    BSP_AUDIO_In_Out_Transfer(_tx_buffer, _rx_buffer, BATCH_TRANSMIT_SIZE);
+
+    return AUDIO_OK;
+}
+
+int AudioClass::startRecord()
+{
     _audioState = AUDIO_STATE_RECORDING;
     memset(_rx_buffer, 0x0, BATCH_TRANSMIT_SIZE * 2);
     BSP_AUDIO_In_Out_Transfer(_rx_buffer, _tx_buffer, BATCH_TRANSMIT_SIZE);
@@ -202,32 +203,6 @@ int AudioClass::startPlay(char *audioFile, int fileSize)
     // Start the audio player
     _audioState = AUDIO_STATE_PLAYING;
     BSP_AUDIO_OUT_Play((uint16_t *)_playCursor, (uint32_t)(fileSize - WAVE_HEADER_SIZE));
-
-    _audioRemSize = pcmDataSize - DMA_MAX(pcmDataSize);
-    _playCursor += DMA_MAX(pcmDataSize);
-
-    return AUDIO_OK;
-}
-
-int AudioClass::startPlayPcm(char *audioFile, int fileSize)
-{
-    if (audioFile == NULL || fileSize <= WAVE_HEADER_SIZE)
-    {
-        return AUDIO_ERROR;
-    }
-
-    _wavFile = audioFile;
-    _audioFileSize = fileSize;
-
-    // Set the current audio pointer position
-    _playCursor = (uint16_t *)(_wavFile + WAVE_HEADER_SIZE);
-
-    // Set the total number of data to be played (count in half-word)
-    int pcmDataSize = (fileSize - WAVE_HEADER_SIZE) / STEREO;
-
-    // Start the audio player
-    _audioState = AUDIO_STATE_PLAYING;
-    BSP_AUDIO_OUT_Play((uint16_t *)_playCursor, (uint32_t)(fileSize));
 
     _audioRemSize = pcmDataSize - DMA_MAX(pcmDataSize);
     _playCursor += DMA_MAX(pcmDataSize);
@@ -432,6 +407,7 @@ void BSP_AUDIO_OUT_TransferComplete_CallBack(void)
         {
             audioCallbackFptr();
         }
+
         BSP_AUDIO_OUT_ChangeBuffer((uint16_t *)_play_buffer, DMA_MAX(Play_Chunk/2));
     }
 }
