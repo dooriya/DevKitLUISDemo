@@ -81,6 +81,8 @@
                     this.httpClient.Dispose();
                 }
             }
+
+            this.disposed = true;
         }
     }
 }

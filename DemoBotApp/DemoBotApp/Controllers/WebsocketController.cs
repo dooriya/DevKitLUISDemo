@@ -44,7 +44,7 @@
             this.ttsClient = new SpeechSynthesisClient(synthesisOption);
         }
 
-        [Route("")]
+        [Route]
         [HttpGet]
         public async Task<HttpResponseMessage> Connect(string nickName)
         {
@@ -68,9 +68,6 @@
             {
                 Conversation conversation = this.directLineClient.Conversations.StartConversation();
                 conversationId = conversation.ConversationId;
-
-                //this.webSocketHandler.SendMessage($"{nickName} connected! Conversation Id: {conversationId}").Wait();
-                //this.webSocketHandler.SendMessage(nickName + " Connected!").Wait();
             };
 
             webSocketHandler.OnTextMessageReceived += async (sender, message) =>
@@ -85,7 +82,7 @@
 
             webSocketHandler.OnClosed += (sender, arg) =>
             {
-                webSocketHandler.SendMessage(nickName + " Disconnected!").Wait();
+                //webSocketHandler.SendMessage(nickName + " Disconnected!").Wait();
                 handlers.Remove(nickName);
             };
 

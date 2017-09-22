@@ -35,6 +35,9 @@ namespace BotAppTestConsole
             //TestSpeechSynthesis();
             TestWebSocket().Wait();
             //DevKitDemoAppTest().Wait();
+
+            Console.WriteLine("Test finish! Press any key to continue...");
+            Console.ReadLine();
         }
 
         private static async Task TestWebSocket()
@@ -44,27 +47,41 @@ namespace BotAppTestConsole
             using (ClientWebSocket webSocketClient = new ClientWebSocket())
             {
                 string nickName = Guid.NewGuid().ToString();
-                Uri serverUri = new Uri($"ws://demobotapp-sandbox.azurewebsites.net/chat?nickName={nickName}");
-                await webSocketClient.ConnectAsync(serverUri, CancellationToken.None);
+                Uri serverUri = new Uri($"ws://demobotapp-sandbox.azurewebsites.net/chat?nickName=qww");
 
+                try
+                {
+                    await webSocketClient.ConnectAsync(serverUri, CancellationToken.None);
+                }
+                catch (Exception e)
+                {
+                    Console.WriteLine($"WebSocket Connect filed: {e.InnerException.ToString()}");
+                    return;
+                }
+                
                 List<byte> totalReceived = new List<byte>();
                 ArraySegment<byte> receivedBuffer = new ArraySegment<byte>(new byte[1024 * 10]);
                 WebSocketReceiveResult receiveResult;
 
                 while (webSocketClient.State == WebSocketState.Open)
                 {
-                    // Send text message to server
                     /*
-                    string sendMsg = chatList[chatIndex];
-                    chatIndex = (chatIndex + 1) % chatList.Count;
+                    // Send text message to server
+                    string sendMsg = chatList[index];
+                    index = (index + 1) % chatList.Count;
                     Console.WriteLine($"Command> {sendMsg}");
 
                     ArraySegment<byte> bytesToSend = new ArraySegment<byte>(Encoding.UTF8.GetBytes(sendMsg));
                     await webSocketClient.SendAsync(bytesToSend, WebSocketMessageType.Text, true, CancellationToken.None);
                     */
 
+                    if (index > 2)
+                    {
+                        break;
+                    }
+
                     byte[] bytes = File.ReadAllBytes(audioFileList[index]);
-                    index = (index + 1) % audioFileList.Count;
+                    index = (index + 1);
                     SendBinary(bytes, webSocketClient).Wait();
 
                     //Thread.Sleep(1000);
@@ -94,6 +111,8 @@ namespace BotAppTestConsole
 
                     Thread.Sleep(1000);
                 }
+
+                await webSocketClient.CloseAsync(WebSocketCloseStatus.NormalClosure, "Client Close", CancellationToken.None);
             }
         }
 

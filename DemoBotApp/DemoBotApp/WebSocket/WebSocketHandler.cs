@@ -11,6 +11,7 @@
     public class WebSocketHandler
     {
         private WebSocket webSocket;
+
         public const int FrameBytesCount = 10 * 1024;
 
         public event EventHandler OnOpened;
