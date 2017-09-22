@@ -121,7 +121,17 @@
             else
             {
                 totalBytes = await ttsClient.SynthesizeTextToBytesAsync(botResponse.Text, CancellationToken.None);
-                handlers[nickName].SendBinary(totalBytes).Wait();
+
+                WaveFormat target = new WaveFormat(8000, 16, 2);
+                MemoryStream outStream = new MemoryStream();
+                using (WaveFormatConversionStream conversionStream = new WaveFormatConversionStream(target, new WaveFileReader(new MemoryStream(totalBytes))))
+                {
+                    WaveFileWriter.WriteWavFileToStream(outStream, conversionStream);
+                    outStream.Position = 0;
+                }
+
+                handlers[nickName].SendBinary(outStream.ToArray()).Wait();
+                outStream.Dispose();
             }
         }
 
