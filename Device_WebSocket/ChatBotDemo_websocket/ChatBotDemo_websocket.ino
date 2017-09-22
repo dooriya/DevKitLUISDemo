@@ -12,15 +12,18 @@ static int buttonAState;
 static int lastButtonBState;
 static int buttonBState;
 static volatile int status;
+const int RING_BUFFER_SIZE = 32000;
+const int PLAY_CHUNK = 512;
 
 static AudioClass& Audio = AudioClass::getInstance();
-const int RING_BUFFER_SIZE = 15000;
+
 RingBuffer ringBuffer(RING_BUFFER_SIZE);
 char readBuffer[2048];
 char websocketBuffer[5000];
-bool startPlay = false;
-static char emptyAudio[256];
+
+static char emptyAudio[PLAY_CHUNK];
 Websocket *websocket;
+bool startPlay = false;
 
 void initWiFi()
 {
@@ -39,11 +42,11 @@ void initWiFi()
   }
 }
 
-
 void play()
 {
-  printf("start play\r\n");
+  Serial.println("start play");
   enterPlayingState();
+  
   Audio.attachRecord(NULL);
   Audio.attachPlay(playCallback);
   Audio.format(8000, 16);
@@ -57,7 +60,7 @@ void record()
   Audio.format(8000, 16);
   Audio.attachPlay(NULL);
   Audio.attachRecord(recordCallback);
-  Audio.startRecord(NULL, NULL, 0);
+  Audio.startRecord();
 }
 
 void stop()
@@ -70,13 +73,13 @@ void stop()
 
 void playCallback(void)
 {
-  if (ringBuffer.use() < 256)
+  if (ringBuffer.use() < PLAY_CHUNK)
   {
-    Audio.write(emptyAudio, 256);
+    Audio.write(emptyAudio, PLAY_CHUNK);
     return;
   }
-  ringBuffer.get((uint8_t*)readBuffer, 256);
-  Audio.write(readBuffer, 256);
+  ringBuffer.get((uint8_t*)readBuffer, PLAY_CHUNK);
+  Audio.write(readBuffer, PLAY_CHUNK);
 }
 
 void recordCallback(void)
@@ -99,22 +102,23 @@ void setResponseBodyCallback(const char* data, size_t dataSize)
 
 char* getUrl()
 {
-  char *url;
-  url = (char *)malloc(300);
-  if (url == NULL)
-  {
-    return NULL;
-  }
-  HTTPClient guidRequest = HTTPClient(HTTP_GET, "http://www.fileformat.info/tool/guid.htm?count=1&format=text&hyphen=true");
-  const Http_Response* _response = guidRequest.send();
-  if (_response == NULL)
-  {
-    printf("Guid generator HTTP request failed.\r\n");
-    return NULL;
-  }
-  snprintf(url, 300, "%s%s", "ws://yiribot.azurewebsites.net/chat?nickName=", _response->body);
-  printf("url: %s\r\n", url);
-  return url;
+    char *url;
+    url = (char *)malloc(300);
+    if (url == NULL)
+    {
+      return NULL;
+    }
+    HTTPClient guidRequest = HTTPClient(HTTP_GET, "http://www.fileformat.info/tool/guid.htm?count=1&format=text&hyphen=true");
+    const Http_Response* _response = guidRequest.send();
+    if (_response == NULL)
+    {
+      printf("Guid generator HTTP request failed.\r\n");
+      return NULL;
+    }
+    
+    snprintf(url, 300, "%s%s", "ws://demobotapp-sandbox.azurewebsites.net/chat?nickName=", _response->body);
+    printf("url: %s\r\n", url);
+    return url;
 }
 
 void setup()
@@ -140,7 +144,7 @@ void setup()
     pinMode(USER_BUTTON_B, INPUT);
     lastButtonBState = digitalRead(USER_BUTTON_B);
 
-    memset(emptyAudio, 0x0, 256);
+    memset(emptyAudio, 0x0, PLAY_CHUNK);
     char *url = getUrl();
     websocket = new Websocket(url);
     connect_state = (*websocket).connect();
@@ -150,6 +154,15 @@ void setup()
 
 void enterIdleState()
 {
+    // reconnet websocket
+    if (connect_state == 1)
+    {
+        char *url = getUrl();
+        websocket = new Websocket(url);
+        connect_state = (*websocket).connect();
+        printf("connect_state %d\r\n", connect_state);
+    }
+    
     status = 0;
     Screen.clean();
     Screen.print(0, "Hold A to talk   ");
@@ -187,6 +200,78 @@ void enterPlayingState()
     Screen.print(1, "Playing...");
 }
 
+void loop()
+{
+    // put your main code here, to run repeatedly:
+    if (hasWifi)
+    {
+        Serial.println("Ready to start a new question now.");
+        enterIdleState();
+
+        // Wait until button A is pressed
+        while(digitalRead(USER_BUTTON_A) == HIGH)
+        {
+            delay(50);
+        }
+
+        (*websocket).send("pcmstart", 4, 0x02);
+        enterRecordingState();
+        record();
+
+        while(digitalRead(USER_BUTTON_A) == LOW || ringBuffer.use() > 0)
+        {
+            if (digitalRead(USER_BUTTON_A) == HIGH)
+            {
+                stop();
+            }
+            
+            int sz = ringBuffer.get((uint8_t*)websocketBuffer, 2048);
+            if (sz > 0) {
+              (*websocket).send(websocketBuffer, sz, 0x00);
+            }
+        }
+        if (Audio.getAudioState() == AUDIO_STATE_RECORDING)
+        {
+            stop();
+        }
+        // Mark binary message end
+        (*websocket).send("pcmend", 4, 0x80);
+        Serial.println("Your voice message is sent.");
+
+        enterReceivingState();
+        unsigned char opcode = 0;
+        int len = 0;
+        bool first = true;
+        while ((opcode & 0x80) == 0x00)
+        {
+          int tmp = (*websocket).read(websocketBuffer, &len, &opcode, first);
+          //printf("tmp %d recv len %d opcode %d\r\n", tmp, len, opcode);
+          first = false;
+          if (tmp == 0) break;
+          setResponseBodyCallback(websocketBuffer, len);
+        }
+        
+        if (startPlay == false)
+        {
+          play();
+        }
+        
+        while(ringBuffer.use() >= PLAY_CHUNK)
+        {
+            delay(100);
+        }
+        stop();
+    }
+
+    /*
+    if (connect_state)
+    {
+      listenVoiceCommand();
+    }
+    */    
+}
+
+/*
 void listenVoiceCommand()
 {
     int sendBytes;
@@ -252,49 +337,10 @@ void listenVoiceCommand()
             }
             
             if (startPlay == false) play();
-            while(ringBuffer.use() >= 256) delay(100);
+            while(ringBuffer.use() >= PLAY_CHUNK) delay(100);
             stop();
             enterIdleState();
             break;
     }
 }
-
-void loop()
-{
-  // put your main code here, to run repeatedly:
-  printf("you can start a new question now\r\n");
-  (*websocket).send("pcmstart", 4, 0x02);
-  enterIdleState();
-  while(digitalRead(USER_BUTTON_A) == HIGH) delay(10);
-  enterRecordingState();
-  record();
-  while(digitalRead(USER_BUTTON_A) == LOW || ringBuffer.use() > 0)
-  {
-    if (digitalRead(USER_BUTTON_A) == HIGH) stop();
-    int sz = ringBuffer.get((uint8_t*)websocketBuffer, 2048);
-    if (sz > 0) {
-      (*websocket).send(websocketBuffer, sz, 0x00);
-    }
-  }
-  stop();
-  (*websocket).send("pcmend", 4, 0x80);
-  printf("your question send\r\n");
-  enterReceivingState();
-  unsigned char opcode = 0;
-  int len = 0;
-  bool first = true;
-  while ((opcode & 0x80) == 0x00) {
-    int tmp = (*websocket).read(websocketBuffer, &len, &opcode, first);
-    printf("tmp %d recv len %d opcode %d\r\n", tmp, len, opcode);
-    first = false;
-    if (tmp == 0) break;
-    setResponseBodyCallback(websocketBuffer, len);
-  }
-  if (startPlay == false) play();
-  while(ringBuffer.use() >= 256) delay(100);
-  stop();
-     /*if (connect_state)
-      {
-        listenVoiceCommand();
-      }*/    
-}
+*/
