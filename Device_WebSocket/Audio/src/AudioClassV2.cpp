@@ -20,7 +20,7 @@ static uint16_t _rx_buffer[BATCH_TRANSMIT_SIZE];
 static uint16_t _tx_buffer[BATCH_TRANSMIT_SIZE];
 static uint8_t  _record_buffer[BATCH_TRANSMIT_SIZE * 2];
 
-const int Play_Chunk = 256;
+const int Play_Chunk = 512;
 static char _play_buffer[Play_Chunk];
 
 static char * _wavFile;
