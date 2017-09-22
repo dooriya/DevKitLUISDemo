@@ -240,8 +240,11 @@ int AudioClass::startPlayPcm(char *audioFile, int fileSize)
 */
 void AudioClass::stop()
 {
-    BSP_AUDIO_STOP();
-    _audioState = AUDIO_STATE_IDLE;
+    if (_audioState != AUDIO_STATE_IDLE)
+    {
+        BSP_AUDIO_STOP();
+        _audioState = AUDIO_STATE_IDLE;
+    }
 }
 
 int AudioClass::getAudioState()
