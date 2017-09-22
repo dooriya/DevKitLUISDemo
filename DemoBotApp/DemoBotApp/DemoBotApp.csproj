@@ -168,8 +168,9 @@
     <Compile Include="BotMessage.cs" />
     <Compile Include="Cognitive\Enums.cs" />
     <Compile Include="Cognitive\CognitiveTokenProvider.cs" />
+    <Compile Include="Cognitive\SpeechRecognitionClient.cs" />
     <Compile Include="Cognitive\SynthesisOptions.cs" />
-    <Compile Include="Cognitive\TTSClient.cs" />
+    <Compile Include="Cognitive\SpeechSynthesisClient.cs" />
     <Compile Include="Constants.cs" />
     <Compile Include="Controllers\WebsocketController.cs" />
     <Compile Include="Controllers\VoiceCommandController.cs" />
