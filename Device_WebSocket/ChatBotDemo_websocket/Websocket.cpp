@@ -162,7 +162,7 @@ bool Websocket::connect() {
     }
 
     cmd[ret] = '\0';
-    printf("recv: %s\r\n", cmd);
+    DBG("recv: %s\r\n", cmd);
 
     if ( strstr(cmd, "DdLWT/1JcX+nQFHebYP+rqEx5xI=") == NULL ) {
         ERR("Wrong answer from server, got \"%s\" instead\r\n", cmd);
@@ -203,7 +203,6 @@ int Websocket::sendLength(uint32_t len, char * msg) {
 
 int Websocket::readChar(char * pC, bool block) {
     int ret = read(pC, 1, 1);
-    printf("%x ", pC);
     return ret;
 }
 
@@ -221,16 +220,13 @@ int Websocket::send(char * str, int size, char opcode, int mask) {
     if (size == 0) size = strlen(str);
     idx += sendLength(size, msg + idx);
     idx += sendMask(msg + idx);
-    for (int i = 0; i < idx; ++i) printf("%x ", msg[i]); printf("\r\n");
     int res = write(msg, idx);
     if (res != idx) {
         printf("send websocket frame header failed\r\n");
         return -1;
     }
-    printf("before write res %d  size %d\r\n", res, size);
     res = write(str, size);
     if (res == -1) return -1;
-    printf("res %d  size %d\r\n", res, size);
     return res + idx;
 }
 
@@ -245,7 +241,6 @@ bool Websocket::read(char * message, int * length, unsigned char * opcode, bool 
     // read the opcode
     tmr.start();
     while (true) {
-        printf("try read opcode websocket read\r\n");
         if (tmr.read() > 20) {
             printf("\r\ntimeout ws\r\n");
             return false;
@@ -256,7 +251,6 @@ bool Websocket::read(char * message, int * length, unsigned char * opcode, bool 
             printf("recv not 1 %d %d\r\n", res, *opcode);
             return false;
         }
-        printf("<%x> ", *opcode & 0x7F);
         if (first && ((*opcode & 0x7F) == 0x01 || (*opcode & 0x7F) == 0x02))
             break;
         if (!first && (*opcode & 0x7F) == 0x00)
@@ -325,11 +319,9 @@ int Websocket::write(char * str, int len) {
 
         if ((res = socket.send(str + idx, len - idx)) < 0)
         {
-            printf("res %d\r\n", res);
             continue;
         }
 
-        printf("res %d\r\n", res);
         idx += res;
         
         if (idx == len)

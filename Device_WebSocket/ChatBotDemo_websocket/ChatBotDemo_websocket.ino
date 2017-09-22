@@ -24,7 +24,6 @@ RingBuffer ringBuffer(RING_BUFFER_SIZE);
 
 void play()
 {
-  ringBuffer.clear();
   printf("start play\r\n");
   Audio.attachPlay(playCallback);
   Audio.format(8000, 16);
@@ -44,8 +43,6 @@ void playCallback(void)
 {
     if (ringBuffer.use() < 256)
     {
-       // printf("stop\r\n");
-       // Audio.stop();
         Audio.write(emptyAudio, 256);
         return;
     }
@@ -58,7 +55,6 @@ void stop()
     Audio.stop();
     startPlay= false;
 }
-
 
 void recordCallback(void)
 {
@@ -78,17 +74,6 @@ void setResponseBodyCallback(const char* data, size_t dataSize)
   }
 }
 
-void SendBinary(Websocket *ws, char *message, int size){
-  int sendTime = (size - 1) / 1024 + 1;
-    for (int i = 0; i < sendTime; ++i) {
-      char opcode = ((i == 0) ? 0x02 : 0x00);
-      if (i == sendTime - 1) 
-      {
-        opcode = opcode | 0x80;
-      }
-      printf("opcode %d  send %d\r\n", opcode, (*ws).send(message + 1024 * i, (i == sendTime - 1) ? (size % 1024) : 1024, opcode));
-   }
-}
 void setup() {
   
   pinMode(USER_BUTTON_A, INPUT);
@@ -116,12 +101,11 @@ void setup() {
   }
   memset(emptyAudio, 0x0, 256);
   Websocket ws(url);
-//Websocket ws("ws://yiribot.azurewebsites.net/ws/ws?nickName=hah");
-  int connect_error = ws.connect();
-  printf("connect_error %d\r\n", connect_error);
+  int connect_state = ws.connect();
+  printf("connect_state %d\r\n", connect_state);
   
 while(true){
-  
+  printf("you can start a new question now\r\n");
   ws.send("pcmstart", 4, 0x02);
   while(digitalRead(USER_BUTTON_A) == HIGH) delay(10);
   record();
@@ -134,17 +118,20 @@ while(true){
     }
   }
   ws.send("pcmend", 4, 0x80);
-  //ringBuffer.clear();
+  delay(100);
+  printf("your question send\r\n");
+    ringBuffer.clear();
     unsigned char opcode = 0;
     int len = 0;
-    int first = true;
+    bool first = true;
     while ((opcode & 0x80) == 0x00) {
       int tmp = ws.read(s, &len, &opcode, first);
+      printf("tmp %d recv len %d opcode %d\r\n", tmp, len, opcode);
       first = false;
-      printf("tmp %d  len %d opecode %d\r\n", tmp, len, opcode);
       if (tmp == 0) break;
       setResponseBodyCallback(s, len);
     }
+    if (startPlay == false) play();
     while(ringBuffer.use() >= 256) delay(100);
     ringBuffer.clear();
     stop();
