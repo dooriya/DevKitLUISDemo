@@ -72,7 +72,10 @@
 
             webSocketHandler.OnTextMessageReceived += async (sender, message) =>
             {
-                await OnMessageReceived(sender, message, conversationId, nickName, watermark);
+                if (!string.Equals(message, "heartbeat", StringComparison.OrdinalIgnoreCase))
+                {
+                    await OnMessageReceived(sender, message, conversationId, nickName, watermark);
+                }
             };
 
             webSocketHandler.OnBinaryMessageReceived += async (sender, bytes) =>
