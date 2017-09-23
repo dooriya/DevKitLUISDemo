@@ -4,6 +4,11 @@
 #include "AudioClassV2.h"
 #include "Websocket.h"
 #include "RingBuffer.h"
+#include "SystemTickCounter.h"
+
+#define HEARTBEAT_INTERVAL  60000
+#define RING_BUFFER_SIZE 16000
+#define PLAY_CHUNK 256
 
 static bool hasWifi;
 static bool connect_state;
@@ -12,8 +17,7 @@ static int buttonAState;
 static int lastButtonBState;
 static int buttonBState;
 static volatile int status;
-const int RING_BUFFER_SIZE = 16000;
-const int PLAY_CHUNK = 256;
+static uint64_t hb_interval_ms;
 
 static AudioClass& Audio = AudioClass::getInstance();
 
@@ -52,6 +56,10 @@ int connectWebSocket()
     if (connect_state == 1)
     {
         Serial.println("WebSocket connect succeeded.");
+
+        // Trigger heart beat immediately
+        hb_interval_ms = -(HEARTBEAT_INTERVAL);
+        sendHeartbeat();
         return 0;
     }
     else
@@ -62,8 +70,23 @@ int connectWebSocket()
     }    
 }
 
+void sendHeartbeat()
+{
+    if ((int)(SystemTickCounterRead() - hb_interval_ms) < HEARTBEAT_INTERVAL)
+    {
+      return;
+    }
+  
+    Serial.println(">>Heartbeat<<");  
+    // Send haertbeart message
+    (*websocket).send("heartbeat", 9);
+    
+    // Reset
+    hb_interval_ms = SystemTickCounterRead();
+}
+
 void record()
-{   
+{
     ringBuffer.clear();
     Audio.format(8000, 16);
     Audio.attachPlay(NULL);
@@ -239,37 +262,32 @@ void doWork()
 
         // Active state, ready for conversation
         case 1:
-            if (connect_state == 1)
+            buttonBState = digitalRead(USER_BUTTON_B);
+            if (buttonBState == LOW)
             {
-                buttonBState = digitalRead(USER_BUTTON_B);
-                if (buttonBState == LOW)
-                {
-                    (*websocket).send("pcmstart", 4, 0x02);
-                    record();
-                    enterRecordingState();
-                }
+                (*websocket).send("pcmstart", 4, 0x02);
+                record();
+                enterRecordingState();
+            }
 
-                buttonAState = digitalRead(USER_BUTTON_A);
-                if (buttonAState == LOW)
+            buttonAState = digitalRead(USER_BUTTON_A);
+            if (buttonAState == LOW)
+            {
+                if((*websocket).close())
                 {
-                    if((*websocket).close())
-                    {
-                        Serial.println("WebSocket stop succeeded.");
-                        Screen.print("conversation stop.");
-                        delay(200);
-                        enterIdleState();
-                    }
-                    else
-                    {
-                        Serial.println("WebSocket close failed.");
-                    }
+                    Serial.println("WebSocket stop succeeded.");
+                    Screen.print("conversation stop.");
+                    delay(200);
+                    connect_state = 0;
+                    enterIdleState();
+                }
+                else
+                {
+                    Serial.println("WebSocket close failed.");
                 }
             }
-            else
-            {
-                // Connection broken
-                enterIdleState();
-            }
+
+            sendHeartbeat();
             
             break;
             
