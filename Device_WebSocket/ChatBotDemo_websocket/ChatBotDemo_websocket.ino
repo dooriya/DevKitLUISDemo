@@ -7,8 +7,9 @@
 #include "SystemTickCounter.h"
 
 #define HEARTBEAT_INTERVAL  60000
-#define RING_BUFFER_SIZE 16000
+#define RING_BUFFER_SIZE 64000
 #define PLAY_CHUNK 256
+#define PLAY_DELAY_RATE 0.2
 
 static bool hasWifi;
 static bool connect_state;
@@ -64,6 +65,7 @@ int connectWebSocket()
     }
     else
     {
+        Screen.print(0, "WS connect failed.");
         Serial.print("WebSocket connect failed, connect_state: ");
         Serial.println(connect_state);
         return -1;
@@ -141,7 +143,7 @@ void setResponseBodyCallback(const char* data, size_t dataSize)
     }
     
     ringBuffer.put((uint8_t*)data, dataSize);
-    if (ringBuffer.use() > RING_BUFFER_SIZE / 2 && startPlay == false)
+    if (ringBuffer.use() > RING_BUFFER_SIZE * PLAY_DELAY_RATE && startPlay == false)
     {
         play();
     }
@@ -159,12 +161,13 @@ char* getUrl()
     const Http_Response* _response = guidRequest.send();
     if (_response == NULL)
     {
-      printf("Guid generator HTTP request failed.\r\n");
+      Serial.println("Guid generator HTTP request failed.");
       return NULL;
     }
     
     snprintf(url, 300, "%s%s", "ws://demobotapp-sandbox.azurewebsites.net/chat?nickName=", _response->body);
-    printf("url: %s\r\n", url);
+    Serial.print("WebSocket url: ");
+    Serial.println(url);
     return url;
 }
 
