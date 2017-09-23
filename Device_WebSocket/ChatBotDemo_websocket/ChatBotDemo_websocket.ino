@@ -12,8 +12,8 @@ static int buttonAState;
 static int lastButtonBState;
 static int buttonBState;
 static volatile int status;
-const int RING_BUFFER_SIZE = 32000;
-const int PLAY_CHUNK = 512;
+const int RING_BUFFER_SIZE = 16000;
+const int PLAY_CHUNK = 256;
 
 static AudioClass& Audio = AudioClass::getInstance();
 
@@ -42,6 +42,23 @@ void initWiFi()
   }
 }
 
+void connectWebSocket()
+{
+    char *url = getUrl();
+    websocket = new Websocket(url);
+    connect_state = (*websocket).connect();
+    printf("connect_state %d\r\n", connect_state);
+}
+
+void record()
+{   
+  ringBuffer.clear();
+  Audio.format(8000, 16);
+  Audio.attachPlay(NULL);
+  Audio.attachRecord(recordCallback);
+  Audio.startRecord();
+}
+
 void play()
 {
   Serial.println("start play");
@@ -54,15 +71,6 @@ void play()
   startPlay = true;
 }
 
-void record()
-{   
-  ringBuffer.clear();
-  Audio.format(8000, 16);
-  Audio.attachPlay(NULL);
-  Audio.attachRecord(recordCallback);
-  Audio.startRecord();
-}
-
 void stop()
 {
   Audio.stop();
@@ -73,19 +81,19 @@ void stop()
 
 void playCallback(void)
 {
-  if (ringBuffer.use() < PLAY_CHUNK)
-  {
-    Audio.write(emptyAudio, PLAY_CHUNK);
-    return;
-  }
-  ringBuffer.get((uint8_t*)readBuffer, PLAY_CHUNK);
-  Audio.write(readBuffer, PLAY_CHUNK);
+    if (ringBuffer.use() < PLAY_CHUNK)
+    {
+      Audio.write(emptyAudio, PLAY_CHUNK);
+      return;
+    }
+    ringBuffer.get((uint8_t*)readBuffer, PLAY_CHUNK);
+    Audio.write(readBuffer, PLAY_CHUNK);
 }
 
 void recordCallback(void)
 {
-  Audio.read(readBuffer, 2048);
-  ringBuffer.put((uint8_t*)readBuffer, 2048);
+    Audio.read(readBuffer, 2048);
+    ringBuffer.put((uint8_t*)readBuffer, 2048);
 }
 
 void setResponseBodyCallback(const char* data, size_t dataSize)
@@ -145,22 +153,17 @@ void setup()
     lastButtonBState = digitalRead(USER_BUTTON_B);
 
     memset(emptyAudio, 0x0, PLAY_CHUNK);
-    char *url = getUrl();
-    websocket = new Websocket(url);
-    connect_state = (*websocket).connect();
-    printf("connect_state %d\r\n", connect_state);
+    connectWebSocket();
     enterIdleState();
 }
+
 
 void enterIdleState()
 {
     // reconnet websocket
-    if (connect_state == 1)
+    if (connect_state != 1)
     {
-        char *url = getUrl();
-        websocket = new Websocket(url);
-        connect_state = (*websocket).connect();
-        printf("connect_state %d\r\n", connect_state);
+        connectWebSocket();
     }
     
     status = 0;
