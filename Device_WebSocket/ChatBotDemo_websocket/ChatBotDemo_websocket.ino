@@ -44,10 +44,20 @@ void initWiFi()
 
 void connectWebSocket()
 {
+    Screen.clean();
+    Screen.print(0, "Connecting to WS.");
     char *url = getUrl();
     websocket = new Websocket(url);
     connect_state = (*websocket).connect();
-    printf("connect_state %d\r\n", connect_state);
+    if (connect_state == 1)
+    {
+        Serial.println("WebSocket connect succeeded.");
+    }
+    else
+    {
+        Serial.print("WebSocket connect failed, connect_state: ");
+        Serial.println(connect_state);
+    }    
 }
 
 void record()
@@ -98,14 +108,18 @@ void recordCallback(void)
 
 void setResponseBodyCallback(const char* data, size_t dataSize)
 {
-  while(ringBuffer.available() < dataSize) {
-    printf("ringBuffer ava %d\r\n", ringBuffer.available());
-    delay(10);
-  }
-  ringBuffer.put((uint8_t*)data, dataSize);
-  if (ringBuffer.use() > RING_BUFFER_SIZE / 2 && startPlay == false) {
-    play();
-  }
+    while(ringBuffer.available() < dataSize)
+    {
+        //Serial.print("ringBuffer available:");
+        //Serial.println(ringBuffer.available());
+        delay(50);
+    }
+    
+    ringBuffer.put((uint8_t*)data, dataSize);
+    if (ringBuffer.use() > RING_BUFFER_SIZE / 2 && startPlay == false)
+    {
+        play();
+    }
 }
 
 char* getUrl()
@@ -127,6 +141,64 @@ char* getUrl()
     snprintf(url, 300, "%s%s", "ws://demobotapp-sandbox.azurewebsites.net/chat?nickName=", _response->body);
     printf("url: %s\r\n", url);
     return url;
+}
+
+void enterIdleState()
+{
+    status = 0;
+    
+    // reconnet websocket
+    if (connect_state != 1)
+    {
+        Screen.clean();
+        Screen.print(0, "Press A to start conversation", true);
+        connectWebSocket();
+    }
+    else
+    {
+        
+        Screen.clean();
+        Screen.print(0, "Hold B to talk   ");
+        Serial.println("Hold B to talk   ");
+    }  
+}
+
+void enterConnected()
+{
+    Screen.clean();
+    Screen.print(0, "Hold B to talk   ");
+    Serial.println("Hold B to talk   ");
+}
+
+void enterRecordingState()
+{
+    status = 1;
+    Screen.clean();
+    Screen.print(0, "Release B to send    ");
+    Serial.println("Release B to send    ");
+}
+
+void enterProcessingState()
+{
+    status = 2;
+    Screen.clean();
+    Screen.print(0, "Processing...");
+    Screen.print(1, "Uploading...");
+}
+
+void enterReceivingState()
+{
+    status = 3;
+    Screen.clean();
+    Screen.print(0, "Processing...");
+    Screen.print(1, "Receiving...");
+}
+
+void enterPlayingState()
+{
+    status = 4;
+    Screen.clean();
+    Screen.print(1, "Playing...");
 }
 
 void setup()
@@ -157,52 +229,6 @@ void setup()
     enterIdleState();
 }
 
-
-void enterIdleState()
-{
-    // reconnet websocket
-    if (connect_state != 1)
-    {
-        connectWebSocket();
-    }
-    
-    status = 0;
-    Screen.clean();
-    Screen.print(0, "Hold A to talk   ");
-    Serial.println("Hold A to talk   ");
-}
-
-void enterRecordingState()
-{
-    status = 1;
-    Screen.clean();
-    Screen.print(0, "Release A to send\r\nMax duraion: 3 sec");
-    Serial.println("Release A to send    ");
-}
-
-void enterProcessingState()
-{
-    status = 2;
-    Screen.clean();
-    Screen.print(0, "Processing...");
-    Screen.print(1, "Uploading...");
-}
-
-void enterReceivingState()
-{
-    status = 3;
-    Screen.clean();
-    Screen.print(0, "Processing...");
-    Screen.print(1, "Receiving...");
-}
-
-void enterPlayingState()
-{
-    status = 4;
-    Screen.clean();
-    Screen.print(1, "Playing...");
-}
-
 void loop()
 {
     // put your main code here, to run repeatedly:
@@ -211,59 +237,72 @@ void loop()
         Serial.println("Ready to start a new question now.");
         enterIdleState();
 
-        // Wait until button A is pressed
-        while(digitalRead(USER_BUTTON_A) == HIGH)
+        // Wait until button A or button B is pressed
+        buttonAState = digitalRead(USER_BUTTON_A);
+        buttonBState = digitalRead(USER_BUTTON_B);
+        while(digitalRead(USER_BUTTON_A) == HIGH && digitalRead(USER_BUTTON_B) == HIGH)
         {
             delay(50);
         }
 
-        (*websocket).send("pcmstart", 4, 0x02);
-        enterRecordingState();
-        record();
-
-        while(digitalRead(USER_BUTTON_A) == LOW || ringBuffer.use() > 0)
+        if (digitalRead(USER_BUTTON_A) == LOW)
         {
-            if (digitalRead(USER_BUTTON_A) == HIGH)
+            connectWebSocket();
+            
+            return;
+        }
+
+        if (digitalRead(USER_BUTTON_B) == LOW)
+        {
+            (*websocket).send("pcmstart", 4, 0x02);
+            enterRecordingState();
+            record();
+    
+            while(digitalRead(USER_BUTTON_B) == LOW || ringBuffer.use() > 0)
+            {
+                if (digitalRead(USER_BUTTON_B) == HIGH)
+                {
+                    stop();
+                }
+                
+                int sz = ringBuffer.get((uint8_t*)websocketBuffer, 2048);
+                if (sz > 0) {
+                  (*websocket).send(websocketBuffer, sz, 0x00);
+                }
+            }
+            
+            if (Audio.getAudioState() == AUDIO_STATE_RECORDING)
             {
                 stop();
             }
-            
-            int sz = ringBuffer.get((uint8_t*)websocketBuffer, 2048);
-            if (sz > 0) {
-              (*websocket).send(websocketBuffer, sz, 0x00);
+            // Mark binary message end
+            (*websocket).send("pcmend", 4, 0x80);
+            Serial.println("Your voice message is sent.");
+    
+            enterReceivingState();
+            unsigned char opcode = 0;
+            int len = 0;
+            bool first = true;
+            while ((opcode & 0x80) == 0x00)
+            {
+              int tmp = (*websocket).read(websocketBuffer, &len, &opcode, first);
+              //printf("tmp %d recv len %d opcode %d\r\n", tmp, len, opcode);
+              first = false;
+              if (tmp == 0) break;
+              setResponseBodyCallback(websocketBuffer, len);
             }
-        }
-        if (Audio.getAudioState() == AUDIO_STATE_RECORDING)
-        {
+        
+            if (startPlay == false)
+            {
+              play();
+            }
+            
+            while(ringBuffer.use() >= PLAY_CHUNK)
+            {
+                delay(100);
+            }
             stop();
-        }
-        // Mark binary message end
-        (*websocket).send("pcmend", 4, 0x80);
-        Serial.println("Your voice message is sent.");
-
-        enterReceivingState();
-        unsigned char opcode = 0;
-        int len = 0;
-        bool first = true;
-        while ((opcode & 0x80) == 0x00)
-        {
-          int tmp = (*websocket).read(websocketBuffer, &len, &opcode, first);
-          //printf("tmp %d recv len %d opcode %d\r\n", tmp, len, opcode);
-          first = false;
-          if (tmp == 0) break;
-          setResponseBodyCallback(websocketBuffer, len);
-        }
-        
-        if (startPlay == false)
-        {
-          play();
-        }
-        
-        while(ringBuffer.use() >= PLAY_CHUNK)
-        {
-            delay(100);
-        }
-        stop();
+        }        
     }
 
     /*
