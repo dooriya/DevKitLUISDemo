@@ -63,10 +63,7 @@
 
                 try
                 {
-                    if (origHandler.webSocket != null)
-                    {
-                        await origHandler.Close();
-                    }
+                    await origHandler.Close();
                 }
                 catch
                 {
