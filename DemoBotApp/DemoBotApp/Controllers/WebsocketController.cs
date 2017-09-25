@@ -54,34 +54,51 @@
             }
 
             WebSocketHandler webSocketHandler = new WebSocketHandler();
+
+            // Handle the case where client forgot to close connection last time
             if (handlers.ContainsKey(nickName))
             {
                 WebSocketHandler origHandler = handlers[nickName];
-                await origHandler.Close();
+                handlers.Remove(nickName);
+
+                try
+                {
+                    if (origHandler.webSocket != null)
+                    {
+                        await origHandler.Close();
+                    }
+                }
+                catch
+                {
+                    // unexcepted error when trying to close the previous websocket
+                }
             }
+
             handlers[nickName] = webSocketHandler;
 
             string conversationId = string.Empty;
             string watermark = null;
 
-            webSocketHandler.OnOpened += (sender, arg) =>
+            webSocketHandler.OnOpened += ((sender, arg) =>
             {
                 Conversation conversation = this.directLineClient.Conversations.StartConversation();
                 conversationId = conversation.ConversationId;
-            };
+            });
 
-            webSocketHandler.OnTextMessageReceived += async (sender, message) =>
+            webSocketHandler.OnTextMessageReceived += (async (sender, message) =>
             {
+                // Do nothing with heartbeat message
+                // Send text message to bot service for non-heartbeat message
                 if (!string.Equals(message, "heartbeat", StringComparison.OrdinalIgnoreCase))
                 {
-                    await OnMessageReceived(sender, message, conversationId, nickName, watermark);
+                    await OnTextMessageReceived(webSocketHandler, message, conversationId, watermark);
                 }
-            };
+            });
 
-            webSocketHandler.OnBinaryMessageReceived += async (sender, bytes) =>
+            webSocketHandler.OnBinaryMessageReceived += (async (sender, bytes) =>
             {
-                await OnBinaryMessageReceived(sender, bytes, conversationId, nickName, watermark);
-            };
+                await OnBinaryMessageReceived(webSocketHandler, bytes, conversationId, watermark);
+            });
 
             webSocketHandler.OnClosed += (sender, arg) =>
             {
@@ -93,19 +110,17 @@
             return Request.CreateResponse(HttpStatusCode.SwitchingProtocols);
         }
 
-        private async Task OnMessageReceived(object sender, string message, string conversationId, string nickName, string watermark)
+        private async Task OnTextMessageReceived(WebSocketHandler handler, string message, string conversationId, string watermark)
         {
             await BotClientHelper.SendBotMessageAsync(this.directLineClient, conversationId, FromUserId, message);
             BotMessage botResponse = await BotClientHelper.ReceiveBotMessagesAsync(this.directLineClient, conversationId, watermark);
-
-            //await handlers[nickName].SendMessage($"user said: {message}, bot reply: {botResult.Text}, watermark: {botResult.Watermark}, replayToId: {botResult.ReplyToId}");
 
             // Convert text to speech
             byte[] totalBytes;
             if (botResponse.Text.Contains("Music.Play"))
             {
                 totalBytes = ((MemoryStream)SampleMusic.GetStream()).ToArray();
-                handlers[nickName].SendBinary(totalBytes).Wait();
+                handler.SendBinary(totalBytes).Wait();
             }
             else
             {
@@ -119,12 +134,12 @@
                     outStream.Position = 0;
                 }
 
-                handlers[nickName].SendBinary(outStream.ToArray()).Wait();
+                handler.SendBinary(outStream.ToArray()).Wait();
                 outStream.Dispose();
             }
         }
 
-        private async Task OnBinaryMessageReceived(object sender, byte[] bytes, string conversationId, string nickName, string watermark)
+        private async Task OnBinaryMessageReceived(WebSocketHandler handler, byte[] bytes, string conversationId, string watermark)
         {
             // Convert speech to Text
             string speechText = null;
@@ -138,7 +153,7 @@
                     }
                 }
             }
-            catch (Exception e)
+            catch
             {
                 // Failed to convert speech to text
             }
@@ -163,7 +178,7 @@
             if (replyMessage.Contains("Music.Play"))
             {
                 totalBytes = ((MemoryStream)SampleMusic.GetStream()).ToArray();
-                handlers[nickName].SendBinary(totalBytes).Wait();
+                handler.SendBinary(totalBytes).Wait();
             }
             else
             {
@@ -177,7 +192,7 @@
                     outStream.Position = 0;
                 }
 
-                handlers[nickName].SendBinary(outStream.ToArray()).Wait();
+                handler.SendBinary(outStream.ToArray()).Wait();
                 outStream.Dispose();
             }
         }

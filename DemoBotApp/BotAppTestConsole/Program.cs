@@ -52,6 +52,7 @@ namespace BotAppTestConsole
                 try
                 {
                     await webSocketClient.ConnectAsync(serverUri, CancellationToken.None);
+                    Console.WriteLine($"WebSocket Connect succeeded.");
                 }
                 catch (Exception e)
                 {
@@ -65,7 +66,11 @@ namespace BotAppTestConsole
 
                 while (webSocketClient.State == WebSocketState.Open)
                 {
-                    /*
+                    if (index > 1)
+                    {
+                        break;
+                    }
+
                     // Send text message to server
                     string sendMsg = chatList[index];
                     index = (index + 1) % chatList.Count;
@@ -73,16 +78,12 @@ namespace BotAppTestConsole
 
                     ArraySegment<byte> bytesToSend = new ArraySegment<byte>(Encoding.UTF8.GetBytes(sendMsg));
                     await webSocketClient.SendAsync(bytesToSend, WebSocketMessageType.Text, true, CancellationToken.None);
-                    */
 
-                    if (index > 2)
-                    {
-                        break;
-                    }
-
+                    /*// Send binary message to server
                     byte[] bytes = File.ReadAllBytes(audioFileList[index]);
                     index = (index + 1);
                     SendBinary(bytes, webSocketClient).Wait();
+                    */
 
                     //Thread.Sleep(1000);
 
@@ -112,7 +113,7 @@ namespace BotAppTestConsole
                     Thread.Sleep(1000);
                 }
 
-                await webSocketClient.CloseAsync(WebSocketCloseStatus.NormalClosure, "Client Close", CancellationToken.None);
+                //await webSocketClient.CloseAsync(WebSocketCloseStatus.NormalClosure, "Client Close", CancellationToken.None);
             }
         }
 

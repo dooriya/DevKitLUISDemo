@@ -98,7 +98,6 @@
                 bool isEndOfMessage = remainingBytes > FrameBytesCount ? false : true;
 
                 await webSocket.SendAsync(
-                    //new ArraySegment<byte>(bytes, 0, FrameBytesCount),
                     new ArraySegment<byte>(bytes, sentBytes, remainingBytes > FrameBytesCount ? FrameBytesCount : remainingBytes),
                     WebSocketMessageType.Binary,
                     isEndOfMessage,
