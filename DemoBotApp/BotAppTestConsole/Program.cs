@@ -42,7 +42,7 @@ namespace BotAppTestConsole
 
         private static async Task TestWebSocket()
         {
-            int index = 0;
+            int index = 3;
 
             using (ClientWebSocket webSocketClient = new ClientWebSocket())
             {
@@ -66,11 +66,12 @@ namespace BotAppTestConsole
 
                 while (webSocketClient.State == WebSocketState.Open)
                 {
-                    if (index > 1)
+                    if (index > 4)
                     {
                         break;
                     }
 
+                    /*
                     // Send text message to server
                     string sendMsg = chatList[index];
                     index = (index + 1) % chatList.Count;
@@ -78,14 +79,12 @@ namespace BotAppTestConsole
 
                     ArraySegment<byte> bytesToSend = new ArraySegment<byte>(Encoding.UTF8.GetBytes(sendMsg));
                     await webSocketClient.SendAsync(bytesToSend, WebSocketMessageType.Text, true, CancellationToken.None);
+                    */
 
-                    /*// Send binary message to server
+                    // Send binary message to server
                     byte[] bytes = File.ReadAllBytes(audioFileList[index]);
                     index = (index + 1);
                     SendBinary(bytes, webSocketClient).Wait();
-                    */
-
-                    //Thread.Sleep(1000);
 
                     // Receive message from server
                     // receive connect ack message
@@ -113,7 +112,7 @@ namespace BotAppTestConsole
                     Thread.Sleep(1000);
                 }
 
-                //await webSocketClient.CloseAsync(WebSocketCloseStatus.NormalClosure, "Client Close", CancellationToken.None);
+                await webSocketClient.CloseAsync(WebSocketCloseStatus.NormalClosure, "Client Close", CancellationToken.None);
             }
         }
 

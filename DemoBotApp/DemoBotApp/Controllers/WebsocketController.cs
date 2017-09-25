@@ -12,6 +12,7 @@
     using System.Web;
     using System.Web.Http;
     using DemoBotApp.WebSocket;
+    using Microsoft.Bing.Speech;
     using Microsoft.Bot.Connector.DirectLine;
     using NAudio.Wave;
 
@@ -23,8 +24,10 @@
         private static readonly Uri SpeechSynthesisUrl = new Uri(Constants.SpeechSynthesisUrl);
         private static readonly string CognitiveSubscriptionKey = ConfigurationManager.AppSettings["CognitiveSubscriptionKey"];
 
+        private SpeechClient speechRocognitionClient;
         private SpeechSynthesisClient ttsClient;
         private string speechLocale = Constants.SpeechLocale;
+        private readonly CancellationTokenSource cts = new CancellationTokenSource();
 
         private DirectLineClient directLineClient;
         private static readonly string DirectLineSecret = ConfigurationManager.AppSettings["DirectLineSecret"];
@@ -38,6 +41,11 @@
         {
             // Setup bot client
             this.directLineClient = new DirectLineClient(DirectLineSecret);
+
+            // Setup speech recognition client
+            Preferences speechPreference = new Preferences(speechLocale, ShortPhraseUrl, new CognitiveTokenProvider(CognitiveSubscriptionKey));
+            this.speechRocognitionClient = new SpeechClient(speechPreference);
+            
 
             // Setup speech synthesis client
             SynthesisOptions synthesisOption = new SynthesisOptions(SpeechSynthesisUrl, CognitiveSubscriptionKey);
@@ -144,11 +152,32 @@
             {
                 using (SpeechRecognitionClient client = new SpeechRecognitionClient(CognitiveSubscriptionKey))
                 {
-                    using (MemoryStream ms = new MemoryStream(bytes))
+                    using (MemoryStream audioStream = new MemoryStream(bytes))
                     {
-                        speechText = await client.ConvertSpeechToTextAsync(ms);
+                        speechText = await client.ConvertSpeechToTextAsync(audioStream);
                     }
                 }
+                
+                /*
+                using (Stream audio = new MemoryStream(bytes))
+                {
+                    var deviceMetadata = new DeviceMetadata(DeviceType.Near, DeviceFamily.Desktop, NetworkType.Wifi, OsName.Windows, "N/A", "N/A", "N/A");
+                    var applicationMetadata = new ApplicationMetadata("SampleApp", "1.0.0");
+                    var requestMetadata = new RequestMetadata(Guid.NewGuid(), deviceMetadata, applicationMetadata, "DemoBotApp");
+
+                    this.speechRocognitionClient.SubscribeToRecognitionResult((result) =>
+                    {
+                        if (result.RecognitionStatus == RecognitionStatus.Success)
+                        {
+                            speechText = result.Phrases[0].DisplayText;
+                        }
+
+                        return Task.FromResult(true);
+                    });
+
+                    await this.speechRocognitionClient.RecognizeAsync(new SpeechInput(audio, requestMetadata), this.cts.Token).ConfigureAwait(false);
+                }
+                */
             }
             catch
             {

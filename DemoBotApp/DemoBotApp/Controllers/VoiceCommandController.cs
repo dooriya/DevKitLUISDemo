@@ -71,20 +71,6 @@
                 throw new ArgumentNullException(nameof(conversationId));
             }
 
-            // create an audio content and pass it a stream.
-            // Option 1: Web Socket
-            /*
-            using (Stream audio = await Request.Content.ReadAsStreamAsync())
-            {
-                var deviceMetadata = new DeviceMetadata(DeviceType.Near, DeviceFamily.Desktop, NetworkType.Wifi, OsName.Windows, "N/A", "N/A", "N/A");
-                var applicationMetadata = new ApplicationMetadata("SampleApp", "1.0.0");
-                var requestMetadata = new RequestMetadata(Guid.NewGuid(), deviceMetadata, applicationMetadata, "SampleAppService");
-
-                await speechClient.RecognizeAsync(new SpeechInput(audio, requestMetadata), this.cts.Token).ConfigureAwait(false);
-            }
-            */
-
-            // Option 2: REST API
             // Convert speech to text
             string speechText;
             using (Stream audio = await Request.Content.ReadAsStreamAsync())
