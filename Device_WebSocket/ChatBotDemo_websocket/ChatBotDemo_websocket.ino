@@ -8,8 +8,7 @@
 
 #define HEARTBEAT_INTERVAL  60000
 #define RING_BUFFER_SIZE 32000
-#define PLAY_CHUNK 256
-#define PLAY_DELAY_RATE 0.2
+#define PLAY_DELAY_RATE 0.1
 
 static bool hasWifi;
 static bool connect_state;
@@ -23,10 +22,10 @@ static uint64_t hb_interval_ms;
 static AudioClass& Audio = AudioClass::getInstance();
 
 RingBuffer ringBuffer(RING_BUFFER_SIZE);
-char readBuffer[2048];
+char readBuffer[AUDIO_CHUNK_SIZE];
 char websocketBuffer[5000];
 
-static char emptyAudio[PLAY_CHUNK];
+static char emptyAudio[AUDIO_CHUNK_SIZE];
 Websocket *websocket;
 bool startPlay = false;
 
@@ -74,7 +73,7 @@ int connectWebSocket()
         Serial.print("WebSocket connection failed, connect_state: ");
         Serial.println(connect_state);
         return -1;
-    }    
+    }
 }
 
 void sendHeartbeat()
@@ -127,19 +126,19 @@ void stop()
 
 void playCallback(void)
 {
-    if (ringBuffer.use() < PLAY_CHUNK)
+    if (ringBuffer.use() < AUDIO_CHUNK_SIZE)
     {
-      Audio.write(emptyAudio, PLAY_CHUNK);
+      Audio.write(emptyAudio, AUDIO_CHUNK_SIZE);
       return;
     }
-    ringBuffer.get((uint8_t*)readBuffer, PLAY_CHUNK);
-    Audio.write(readBuffer, PLAY_CHUNK);
+    ringBuffer.get((uint8_t*)readBuffer, AUDIO_CHUNK_SIZE);
+    Audio.write(readBuffer, AUDIO_CHUNK_SIZE);
 }
 
 void recordCallback(void)
 {
-    Audio.read(readBuffer, 2048);
-    ringBuffer.put((uint8_t*)readBuffer, 2048);
+    Audio.read(readBuffer, AUDIO_CHUNK_SIZE);
+    ringBuffer.put((uint8_t*)readBuffer, AUDIO_CHUNK_SIZE);
 }
 
 void setResponseBodyCallback(const char* data, size_t dataSize)
@@ -162,8 +161,7 @@ void setResponseBodyCallback(const char* data, size_t dataSize)
 }
 
 char* getWebSocketUrl()
-{
-    
+{    
     char *url;
     url = (char *)malloc(300);
 
@@ -218,7 +216,7 @@ void enterServerProcessingState()
     status = 3;
     Screen.clean();
     Screen.print(0,"Processing...");
-    Screen.print(1, "Waiting for server response", true);
+    Screen.print(1, "Thinking...", true);
 }
 
 void enterReceivingState()
@@ -259,7 +257,7 @@ void setup()
     pinMode(USER_BUTTON_B, INPUT);
     lastButtonBState = digitalRead(USER_BUTTON_B);
 
-    memset(emptyAudio, 0x0, PLAY_CHUNK);
+    memset(emptyAudio, 0x0, AUDIO_CHUNK_SIZE);
     enterIdleState();
 }
 
@@ -326,7 +324,7 @@ void doWork()
                     stop();
                 }
                 
-                int sz = ringBuffer.get((uint8_t*)websocketBuffer, 2048);
+                int sz = ringBuffer.get((uint8_t*)websocketBuffer, AUDIO_CHUNK_SIZE);
                 if (sz > 0)
                 {
                   (*websocket).send(websocketBuffer, sz, 0x00);
@@ -366,7 +364,7 @@ void doWork()
               play();
             }
             
-            while(ringBuffer.use() >= PLAY_CHUNK)
+            while(ringBuffer.use() >= AUDIO_CHUNK_SIZE)
             {
                 delay(100);
             }
