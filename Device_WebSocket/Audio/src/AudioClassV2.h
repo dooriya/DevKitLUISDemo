@@ -13,7 +13,7 @@
 #define MONO                        1
 #define STEREO                      2
 #define WAVE_HEADER_SIZE            44          // 44 bytes
-#define BATCH_TRANSMIT_SIZE         (1*1024)    // 2048 bytes
+#define AUDIO_CHUNK_SIZE            512    // 2048 bytes
 
 typedef struct
 {
@@ -34,28 +34,22 @@ typedef struct
 
 typedef enum 
 {
-  AUDIO_STATE_IDLE = 0,
-  AUDIO_STATE_INIT,
-  AUDIO_STATE_RECORDING,
-  AUDIO_STATE_PLAYING,
-  AUDIO_STATE_RECORDING_FINISH,
-  AUDIO_STATE_PLAYING_FINISH
+    AUDIO_STATE_IDLE = 0,
+    AUDIO_STATE_INIT,
+    AUDIO_STATE_RECORDING,
+    AUDIO_STATE_PLAYING,
+    AUDIO_STATE_RECORDING_FINISH,
+    AUDIO_STATE_PLAYING_FINISH
 } AUDIO_STATE_TypeDef;
 
 typedef void (*callbackFunc)();
 
 class AudioClass {
     public:
-        void format(unsigned int sampleRate = DEFAULT_SAMPLE_RATE, unsigned short sampleBitLength = DEFAULT_BITS_PER_SAMPLE);  
-          
-        int startRecord(char * audioFile, int fileSize, int durationInSeconds);
-        int startPlay(char * audioFile, int size);
+        void format(unsigned int sampleRate = DEFAULT_SAMPLE_RATE, unsigned short sampleBitLength = DEFAULT_BITS_PER_SAMPLE);
         void stop();
 
         int getAudioState();
-        int getCurrentSize();
-        double getRecordedDuration();
-        char* getWav(int *fileSize);
         int convertToMono(char * audioFile, int size, int sampleBitLength);
 
         // V2 APIs
@@ -80,9 +74,6 @@ class AudioClass {
 
         /* Private constructor to prevent instancing */
         AudioClass();
-        //Callback<void()> audioCallback;
-
-        uint16_t * rxBuffer;
 };
 
 #endif
